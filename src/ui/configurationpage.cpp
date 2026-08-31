@@ -1,4 +1,5 @@
 #include "configurationpage.h"
+#include "configuration/resolutiontab.h"
 
 #include <QComboBox>
 #include <QFrame>
@@ -8,218 +9,195 @@
 #include <QTabWidget>
 #include <QVBoxLayout>
 
-ConfigurationPage::ConfigurationPage(QWidget *parent) : QWidget(parent)
-{
-    setupUi();
+ConfigurationPage::ConfigurationPage(QWidget *parent) : QWidget(parent) {
+  setupUi();
 }
 
-void ConfigurationPage::setupUi()
-{
+void ConfigurationPage::setupUi() {
 
-/*
+  /*
 
-Esta es la idea
+  Esta es la idea
 
-┌───────────────────────────────────────────────────────────────────┐
-│ Preset: [Predeterminado ▼] [Nuevo] [Guardar] [...]                │
-├───────────────────────────────────────────────────────────────────┤
-│                                                                   │
-│ ┌────────────────────────────────────┐ ┌────────────────────────┐ │
-│ │ Resolución │ Edición │ Conversión  │ │ Resumen                │ │
-│ │                                    │ │ ────────────────────── │ │
-│ │                                    │ │ Preset: Predeterminado │ │
-│ │                                    │ │                        │ │
-│ │                                    │ │ Resolución             │ │
-│ │                                    │ │ ...                    │ │
-│ │                                    │ │                        │ │
-│ │                                    │ │                        │ │
-│ │                                    │ │                        │ │
-│ │                                    │ │                        │ │
-│ │                                    │ │ [Resetear...]          │ │
-│ └────────────────────────────────────┘ └────────────────────────┘ │
-├───────────────────────────────────────────────────────────────────┤
-│ [Ayuda]                         [Analizar documento]      [Salir] │
-└───────────────────────────────────────────────────────────────────┘
+  ┌───────────────────────────────────────────────────────────────────┐
+  │ Preset: [Predeterminado ▼] [Nuevo] [Guardar] [...]                │
+  ├───────────────────────────────────────────────────────────────────┤
+  │                                                                   │
+  │ ┌────────────────────────────────────┐ ┌────────────────────────┐ │
+  │ │ Resolución │ Edición │ Conversión  │ │ Resumen                │ │
+  │ │                                    │ │ ────────────────────── │ │
+  │ │                                    │ │ Preset: Predeterminado │ │
+  │ │                                    │ │                        │ │
+  │ │                                    │ │ Resolución             │ │
+  │ │                                    │ │ ...                    │ │
+  │ │                                    │ │                        │ │
+  │ │                                    │ │                        │ │
+  │ │                                    │ │                        │ │
+  │ │                                    │ │                        │ │
+  │ │                                    │ │ [Resetear...]          │ │
+  │ └────────────────────────────────────┘ └────────────────────────┘ │
+  ├───────────────────────────────────────────────────────────────────┤
+  │ [Ayuda]                         [Analizar documento]      [Salir] │
+  └───────────────────────────────────────────────────────────────────┘
 
-*/
+  */
 
+  // Configuración de interfaz
+  int margin = 12;
 
-    // Configuración de interfaz
-    int margin = 12;
+  auto *mainLayout = new QVBoxLayout(this);
 
-    auto *mainLayout = new QVBoxLayout(this);
+  mainLayout->setContentsMargins(margin, margin, margin, margin);
+  mainLayout->setSpacing(10);
 
-    mainLayout->setContentsMargins(margin,margin,margin,margin);
-    mainLayout->setSpacing(10);
+  /* --> Barra de Presets <-- */
 
-    /* --> Barra de Presets <-- */
+  auto *presetLayout = new QHBoxLayout;
+  auto *presetLabel = new QLabel(tr("Preset:"), this);
+  auto *presetComboBox = new QComboBox(this);
 
-    auto *presetLayout = new QHBoxLayout;
-    auto *presetLabel = new QLabel(tr("Preset:"), this);
-    auto *presetComboBox = new QComboBox(this);
+  presetComboBox->addItem(tr("Predeterminado"));
+  presetComboBox->setMinimumWidth(200);
 
-    presetComboBox->addItem(tr("Predeterminado"));
-    presetComboBox->setMinimumWidth(200);
+  auto *newButton = new QPushButton(tr("Nuevo"), this);
+  auto *saveButton = new QPushButton(tr("Guardar"), this);
+  auto *saveAsButton = new QPushButton(tr("Guardar como..."), this);
+  auto *deleteButton = new QPushButton(tr("Eliminar"), this);
 
-    auto *newButton = new QPushButton(tr("Nuevo"), this);
-    auto *saveButton = new QPushButton(tr("Guardar"), this);
-    auto *saveAsButton = new QPushButton(tr("Guardar como..."), this);
-    auto *deleteButton = new QPushButton(tr("Eliminar"), this);
+  deleteButton->setEnabled(false); // No debes borrar el preset por default
 
-    deleteButton->setEnabled(false); // No debes borrar el preset por default
+  presetLayout->addWidget(presetLabel);
+  presetLayout->addWidget(presetComboBox);
 
-    presetLayout->addWidget(presetLabel);
-    presetLayout->addWidget(presetComboBox);
+  // TODO: chequear que 8 sea un valor adecuado
+  presetLayout->addSpacing(8);
 
-    // TODO: chequear que 8 sea un valor adecuado
-    presetLayout->addSpacing(8);
+  presetLayout->addWidget(newButton);
+  presetLayout->addWidget(saveButton);
+  presetLayout->addWidget(saveAsButton);
+  presetLayout->addWidget(deleteButton);
+  presetLayout->addStretch();
 
-    presetLayout->addWidget(newButton);
-    presetLayout->addWidget(saveButton);
-    presetLayout->addWidget(saveAsButton);
-    presetLayout->addWidget(deleteButton);
-    presetLayout->addStretch();
+  mainLayout->addLayout(presetLayout);
 
-    mainLayout->addLayout(presetLayout);
+  // Separaådor
+  auto *topSeparador = new QFrame(this);      // Se crea un frame separador
+  topSeparador->setFrameShape(QFrame::HLine); // El frame será una línea
+  topSeparador->setFrameShadow(
+      QFrame::Sunken); // Establece el tipo de sombra a hundido
 
-    //Separaådor
-    auto *topSeparador = new QFrame(this); // Se crea un frame separador
-    topSeparador->setFrameShape(QFrame::HLine); // El frame será una línea
-    topSeparador->setFrameShadow(QFrame::Sunken); // Establece el tipo de sombra a hundido
+  mainLayout->addWidget(topSeparador);
 
-    mainLayout->addWidget(topSeparador);
+  /*-->Área principal <-- */
 
-    /*-->Área principal <-- */
+  auto contentLayout = new QHBoxLayout;
 
-    auto contentLayout = new QHBoxLayout;
+  contentLayout->setSpacing(margin);
 
-    contentLayout->setSpacing(margin);
+  // TABS --------------------------
 
-    // TABS --------------------------
+  auto *tabs = new QTabWidget(this);
 
-    auto *tabs = new QTabWidget(this);
+  auto *resolutionPage = new ResolutionTab(tabs);
+  auto *editingPage = new QWidget(tabs);
+  auto *conversionPage = new QWidget(tabs);
 
-    auto *resolutionPage = new QWidget(tabs);
-    auto *editingPage = new QWidget(tabs);
-    auto *conversionPage = new QWidget(tabs);
+  tabs->addTab(resolutionPage, tr("Resolución"));
+  tabs->addTab(editingPage, tr("Edición de imágenes"));
+  tabs->addTab(conversionPage, tr("Conversión de imágenes"));
 
-    tabs->addTab(resolutionPage, tr("Resolución"));
-    tabs->addTab(editingPage, tr("Edición de imágenes"));
-    tabs->addTab(conversionPage, tr("Conversión de imágenes"));
+  contentLayout->addWidget(tabs, 1);
 
-    contentLayout->addWidget(tabs, 1);
+  // RESUMEN ------------------------
 
-    // RESUMEN ------------------------
+  auto *summaryFrame = new QFrame(this);
 
-    auto *summaryFrame = new QFrame(this);
+  summaryFrame->setFrameShape(QFrame::StyledPanel);
+  summaryFrame->setMinimumWidth(250);
+  summaryFrame->setMaximumWidth(300);
 
-    summaryFrame->setFrameShape(QFrame::StyledPanel);
-    summaryFrame->setMinimumWidth(250);
-    summaryFrame->setMaximumWidth(300);
+  auto *summaryLayout = new QVBoxLayout(summaryFrame);
 
+  auto *summaryTitle = new QLabel(tr("Resumen"), summaryFrame);
 
-    auto *summaryLayout = new QVBoxLayout(summaryFrame);
+  QFont titleFont = summaryTitle->font();
+  titleFont.setBold(true);
+  summaryTitle->setFont(titleFont);
 
-    auto *summaryTitle = new QLabel(tr("Resumen"),summaryFrame);
+  summaryLayout->addWidget(summaryTitle);
 
-    QFont titleFont = summaryTitle->font();
-    titleFont.setBold(true);
-    summaryTitle->setFont(titleFont);
+  auto *summarySeparator = new QFrame(summaryFrame);
+  summarySeparator->setFrameShape(QFrame::HLine);
 
-    summaryLayout->addWidget(summaryTitle);
+  summaryLayout->addWidget(summarySeparator);
 
-    auto *summarySeparator = new QFrame(summaryFrame);
-    summarySeparator->setFrameShape(QFrame::HLine);
+  auto *summaryPlaceholder = new QLabel(tr("Preset: Predeterminado\n\n"
+                                           "Resolución efectiva deseada\n"
+                                           "Color / Escala de grises: —\n"
+                                           "Monochrome: —\n\n"
+                                           "Método de optimización\n"
+                                           "—\n\n"
+                                           "Edición de imágenes\n"
+                                           "—\n\n"
+                                           "Conversión de imágenes\n"
+                                           "—"),
+                                        summaryFrame);
 
-    summaryLayout->addWidget(summarySeparator);
+  summaryPlaceholder->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+  summaryPlaceholder->setWordWrap(true);
 
-    auto *summaryPlaceholder = new QLabel(
-        tr(
-            "Preset: Predeterminado\n\n"
-            "Resolución efectiva deseada\n"
-            "Color / Escala de grises: —\n"
-            "Monochrome: —\n\n"
-            "Método de optimización\n"
-            "—\n\n"
-            "Edición de imágenes\n"
-            "—\n\n"
-            "Conversión de imágenes\n"
-            "—"
-            ),
-        summaryFrame
-        );
+  summaryLayout->addWidget(summaryPlaceholder);
+  summaryLayout->addStretch();
 
-    summaryPlaceholder->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-    summaryPlaceholder->setWordWrap(true);
+  auto *resetButton =
+      new QPushButton(tr("Resetear la configuración"), summaryFrame);
 
-    summaryLayout->addWidget(summaryPlaceholder);
-    summaryLayout->addStretch();
+  summaryLayout->addWidget(resetButton);
 
-    auto *resetButton = new QPushButton(
-        tr("Resetear la configuración"),
-        summaryFrame
-        );
+  contentLayout->addWidget(summaryFrame);
 
-    summaryLayout->addWidget(resetButton);
+  mainLayout->addLayout(contentLayout, 1);
 
-    contentLayout->addWidget(summaryFrame);
+  // ---------------------------------------------------------
+  // Separador inferior
+  // ---------------------------------------------------------
 
-    mainLayout->addLayout(contentLayout, 1);
+  auto *bottomSeparator = new QFrame(this);
+  bottomSeparator->setFrameShape(QFrame::HLine);
+  bottomSeparator->setFrameShadow(QFrame::Sunken);
 
-    // ---------------------------------------------------------
-    // Separador inferior
-    // ---------------------------------------------------------
+  mainLayout->addWidget(bottomSeparator);
 
-    auto *bottomSeparator = new QFrame(this);
-    bottomSeparator->setFrameShape(QFrame::HLine);
-    bottomSeparator->setFrameShadow(QFrame::Sunken);
+  // ---------------------------------------------------------
+  // Barra de botones
+  // ---------------------------------------------------------
 
-    mainLayout->addWidget(bottomSeparator);
+  auto *actionLayout = new QHBoxLayout;
 
-    // ---------------------------------------------------------
-    // Barra de botones
-    // ---------------------------------------------------------
+  auto *helpButton = new QPushButton(tr("Ayuda"), this);
+  auto *analyzeButton = new QPushButton(tr("Analizar documento"), this);
+  auto *exitButton = new QPushButton(tr("Salir"), this);
 
-    auto *actionLayout = new QHBoxLayout;
+  analyzeButton->setDefault(true);
+  analyzeButton->setAutoDefault(true);
 
-    auto *helpButton = new QPushButton(tr("Ayuda"),this);
-    auto *analyzeButton = new QPushButton(tr("Analizar documento"), this);
-    auto *exitButton = new QPushButton(tr("Salir"), this);
+  actionLayout->addWidget(helpButton);
+  actionLayout->addStretch();
+  actionLayout->addWidget(analyzeButton);
+  actionLayout->addWidget(exitButton);
 
-    analyzeButton->setDefault(true);
-    analyzeButton->setAutoDefault(true);
+  mainLayout->addLayout(actionLayout);
 
-    actionLayout->addWidget(helpButton);
-    actionLayout->addStretch();
-    actionLayout->addWidget(analyzeButton);
-    actionLayout->addWidget(exitButton);
+  // ---------------------------------------------------------
+  // Signals
+  // ---------------------------------------------------------
 
-    mainLayout->addLayout(actionLayout);
+  connect(analyzeButton, &QPushButton::clicked, this,
+          &ConfigurationPage::analyzeDocumentRequested);
 
-    // ---------------------------------------------------------
-    // Signals
-    // ---------------------------------------------------------
+  connect(helpButton, &QPushButton::clicked, this,
+          &ConfigurationPage::helpRequested);
 
-    connect(
-        analyzeButton,
-        &QPushButton::clicked,
-        this,
-        &ConfigurationPage::analyzeDocumentRequested
-        );
-
-    connect(
-        helpButton,
-        &QPushButton::clicked,
-        this,
-        &ConfigurationPage::helpRequested
-        );
-
-    connect(
-        exitButton,
-        &QPushButton::clicked,
-        this,
-        &ConfigurationPage::exitRequested
-        );
-
+  connect(exitButton, &QPushButton::clicked, this,
+          &ConfigurationPage::exitRequested);
 }
-
