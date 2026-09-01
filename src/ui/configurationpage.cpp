@@ -95,9 +95,9 @@ void ConfigurationPage::setupUi() {
   mainLayout->addLayout(presetLayout);
 
   // Separador
-  auto *topSeparador = new QFrame(this);      // Se crea un frame separador
-  topSeparador->setFrameShape(QFrame::HLine); // El frame será una línea
-  topSeparador->setFrameShadow(QFrame::Sunken); // Establece el tipo de sombra a hundido
+  auto *topSeparador = new QFrame(this);
+  topSeparador->setFrameShape(QFrame::HLine);
+  topSeparador->setFrameShadow(QFrame::Sunken);
 
   mainLayout->addWidget(topSeparador);
 
@@ -123,52 +123,6 @@ void ConfigurationPage::setupUi() {
   contentLayout->addWidget(tabs, 1);
 
   // RESUMEN ------------------------
-
-  auto *summaryFrame = new QFrame(this);
-
-  summaryFrame->setFrameShape(QFrame::StyledPanel);
-  summaryFrame->setMinimumWidth(250);
-  summaryFrame->setMaximumWidth(300);
-
-  // auto *summaryLayout = new QVBoxLayout(summaryFrame);
-  //
-  // auto *summaryTitle = new QLabel(tr("Resumen"), summaryFrame);
-  //
-  // QFont titleFont = summaryTitle->font();
-  // titleFont.setBold(true);
-  // summaryTitle->setFont(titleFont);
-  //
-  // summaryLayout->addWidget(summaryTitle);
-  //
-  // auto *summarySeparator = new QFrame(summaryFrame);
-  // summarySeparator->setFrameShape(QFrame::HLine);
-  //
-  // summaryLayout->addWidget(summarySeparator);
-  //
-  // auto *summaryPlaceholder = new QLabel(tr("Preset: Predeterminado\n\n"
-  //                                          "Resolución efectiva deseada\n"
-  //                                          "Color / Escala de grises: —\n"
-  //                                          "Monochrome: —\n\n"
-  //                                          "Método de optimización\n"
-  //                                          "—\n\n"
-  //                                          "Edición de imágenes\n"
-  //                                          "—\n\n"
-  //                                          "Conversión de imágenes\n"
-  //                                          "—"),
-  //                                       summaryFrame);
-  //
-  // summaryPlaceholder->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-  // summaryPlaceholder->setWordWrap(true);
-  //
-  // summaryLayout->addWidget(summaryPlaceholder);
-  // summaryLayout->addStretch();
-  //
-  // auto *resetButton =
-  //     new QPushButton(tr("Resetear la configuración"), summaryFrame);
-  //
-  // summaryLayout->addWidget(resetButton);
-  //
-  // contentLayout->addWidget(summaryFrame);
 
   m_summaryPanel = new SummaryPanel(this);
   contentLayout->addWidget(m_summaryPanel);

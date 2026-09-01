@@ -14,196 +14,209 @@
 #include <QSignalBlocker>
 
 ResolutionTab::ResolutionTab(QWidget *parent) : QWidget(parent) {
-  setupUi();
-  setupConnections();
+    setupUi();
+    setupConnections();
 
-  updateResolutionUnits();
-  updateOptimizationControls();
+    updateResolutionUnits();
+    updateOptimizationControls();
 }
 
 
 
 void ResolutionTab::setupUi() {
-  auto *mainLayout = new QVBoxLayout(this);
+    auto *mainLayout = new QVBoxLayout(this);
 
-  mainLayout->setContentsMargins(16, 16, 16, 16);
-  mainLayout->setSpacing(18);
+    mainLayout->setContentsMargins(16, 16, 16, 16);
+    mainLayout->setSpacing(18);
 
-  // =========================================================
-  // Resolución efectiva
-  // =========================================================
+    // =========================================================
+    // Resolución efectiva
+    // =========================================================
 
-  auto *resolutionGroup = new QGroupBox(tr("Resolución efectiva deseada"), this);
+    auto *resolutionGroup = new QGroupBox(tr("Resolución efectiva deseada"), this);
 
-  auto *resolutionLayout = new QVBoxLayout(resolutionGroup);
+    auto *resolutionLayout = new QVBoxLayout(resolutionGroup);
 
-  resolutionLayout->setSpacing(12);
+    resolutionLayout->setSpacing(12);
 
-  // Unidades
+    // Unidades
 
-  auto *unitLayout = new QHBoxLayout;
+    auto *unitLayout = new QHBoxLayout;
 
-  auto *unitLabel = new QLabel(tr("Unidades:"), resolutionGroup);
+    auto *unitLabel = new QLabel(tr("Unidades:"), resolutionGroup);
 
-  m_resolutionUnitCombo = new QComboBox(resolutionGroup);
+    m_resolutionUnitCombo = new QComboBox(resolutionGroup);
 
-  m_resolutionUnitCombo->addItem( tr("pixels/inch"), QVariant::fromValue(ResolutionUnit::Ppi));
-  m_resolutionUnitCombo->addItem( tr("pixels/cm"), QVariant::fromValue(ResolutionUnit::PixelsPerCm));
+    m_resolutionUnitCombo->addItem( tr("pixels/inch"), QVariant::fromValue(ResolutionUnit::Ppi));
+    m_resolutionUnitCombo->addItem( tr("pixels/cm"), QVariant::fromValue(ResolutionUnit::PixelsPerCm));
 
-  unitLayout->addWidget(unitLabel);
-  unitLayout->addWidget(m_resolutionUnitCombo);
-  unitLayout->addStretch();
+    unitLayout->addWidget(unitLabel);
+    unitLayout->addWidget(m_resolutionUnitCombo);
+    unitLayout->addStretch();
 
-  resolutionLayout->addLayout(unitLayout);
+    resolutionLayout->addLayout(unitLayout);
 
-  // ---------------------------------------------------------
-  // Resoluciones
-  // ---------------------------------------------------------
+    // ---------------------------------------------------------
+    // Resoluciones
+    // ---------------------------------------------------------
 
 
-  auto *resolutionValuesLayout = new QHBoxLayout;
-  resolutionValuesLayout->setSpacing(20);
+    auto *resolutionValuesLayout = new QHBoxLayout;
+    resolutionValuesLayout->setSpacing(20);
 
-  // Color / grayscale
-  auto *colorGroup = new QGroupBox(tr("Color / Escala de grises"), resolutionGroup);
-  auto *colorLayout = new QHBoxLayout(colorGroup);
+    // Color / grayscale
+    auto *colorGroup = new QGroupBox(tr("Color / Escala de grises"), resolutionGroup);
+    auto *colorLayout = new QHBoxLayout(colorGroup);
 
-  m_colorResolutionSpin = new QDoubleSpinBox(colorGroup);
+    auto *colorResolutionLabel =
+        new QLabel(tr("Resolución deseada:"), colorGroup);
 
-  m_colorResolutionSpin->setRange(1.0, 10000.0);
-  m_colorResolutionSpin->setDecimals(0);
-  m_colorResolutionSpin->setSingleStep(10.0);
-  m_colorResolutionSpin->setValue(300.0);
+    m_colorResolutionSpin = new QDoubleSpinBox(colorGroup);
 
-  colorLayout->addWidget(m_colorResolutionSpin);
-  colorLayout->addStretch();
+    colorResolutionLabel->setBuddy(m_colorResolutionSpin);
 
-  // Monochrome
-  auto *monochromeGroup =
-      new QGroupBox(tr("Escala monocromática (Blanco y negro)"), resolutionGroup);
-  auto *monochromeLayout = new QHBoxLayout(monochromeGroup);
-  m_monochromeResolutionSpin = new QDoubleSpinBox(monochromeGroup);
+    m_colorResolutionSpin->setRange(1.0, 10000.0);
+    m_colorResolutionSpin->setDecimals(0);
+    m_colorResolutionSpin->setSingleStep(10.0);
+    m_colorResolutionSpin->setValue(300.0);
 
-  m_monochromeResolutionSpin->setRange(1.0, 10000.0);
-  m_monochromeResolutionSpin->setDecimals(0);
-  m_monochromeResolutionSpin->setSingleStep(50.0);
-  m_monochromeResolutionSpin->setValue(1200.0);
+    colorLayout->addWidget(colorResolutionLabel);
+    colorLayout->addWidget(m_colorResolutionSpin);
+    colorLayout->addStretch();
 
-  monochromeLayout->addWidget(m_monochromeResolutionSpin);
+    // Monochrome
+    auto *monochromeGroup =
+        new QGroupBox(tr("Escala monocromática (Blanco y negro)"), resolutionGroup);
+    auto *monochromeLayout = new QHBoxLayout(monochromeGroup);
 
-  monochromeLayout->addStretch();
+    auto *monochromeResolutionLabel =
+        new QLabel(tr("Resolución deseada:"), monochromeGroup);
 
-  resolutionValuesLayout->addWidget(colorGroup);
-  resolutionValuesLayout->addWidget(monochromeGroup);
+    m_monochromeResolutionSpin = new QDoubleSpinBox(monochromeGroup);
 
-  resolutionLayout->addLayout(resolutionValuesLayout);
+    monochromeResolutionLabel->setBuddy(m_monochromeResolutionSpin);
 
-  mainLayout->addWidget(resolutionGroup);
+    m_monochromeResolutionSpin->setRange(1.0, 10000.0);
+    m_monochromeResolutionSpin->setDecimals(0);
+    m_monochromeResolutionSpin->setSingleStep(50.0);
+    m_monochromeResolutionSpin->setValue(1200.0);
 
-  // =========================================================
-  // Método de Optimizacion
-  // =========================================================
+    monochromeLayout->addWidget(monochromeResolutionLabel);
+    monochromeLayout->addWidget(m_monochromeResolutionSpin);
 
-  auto *optimizationGroup = new QGroupBox(tr("Método de optimización"), this);
+    monochromeLayout->addStretch();
 
-  auto *optimizationLayout = new QVBoxLayout(optimizationGroup);
+    resolutionValuesLayout->addWidget(colorGroup);
+    resolutionValuesLayout->addWidget(monochromeGroup);
 
-  optimizationLayout->setSpacing(12);
+    resolutionLayout->addLayout(resolutionValuesLayout);
 
-  // ---------------------------------------------------------
-  // Scale + resample
-  // ---------------------------------------------------------
+    mainLayout->addWidget(resolutionGroup);
 
-  m_scaleAndResampleRadio = new QRadioButton(
-      tr("Escalar imágenes y cambiar resolución a la resolución deseada"),
-      optimizationGroup);
+    // =========================================================
+    // Método de Optimizacion
+    // =========================================================
 
-  m_scaleAndResampleRadio->setChecked(true);
+    auto *optimizationGroup = new QGroupBox(tr("Método de optimización"), this);
 
-  optimizationLayout->addWidget(m_scaleAndResampleRadio);
+    auto *optimizationLayout = new QVBoxLayout(optimizationGroup);
 
-  auto *dependentControls = new QWidget(optimizationGroup);
+    optimizationLayout->setSpacing(12);
 
-  auto *dependentLayout = new QVBoxLayout(dependentControls);
+    // ---------------------------------------------------------
+    // Scale + resample
+    // ---------------------------------------------------------
 
-  dependentLayout->setContentsMargins(24, 0, 0, 0);
+    m_scaleAndResampleRadio = new QRadioButton(
+        tr("Escalar imágenes y cambiar resolución a la resolución deseada"),
+        optimizationGroup);
 
-  dependentLayout->setSpacing(8);
+    m_scaleAndResampleRadio->setChecked(true);
 
-  m_cropCheckBox = new QCheckBox(tr("Recortar imágenes al tamaño de InDesign"),
-                                 dependentControls);
+    optimizationLayout->addWidget(m_scaleAndResampleRadio);
 
-  m_cropCheckBox->setChecked(true);
+    auto *dependentControls = new QWidget(optimizationGroup);
 
-  dependentLayout->addWidget(m_cropCheckBox);
+    auto *dependentLayout = new QVBoxLayout(dependentControls);
 
-  // Área de seguridad
-  m_safetyAreaContainer = new QWidget(dependentControls);
+    dependentLayout->setContentsMargins(24, 0, 0, 0);
 
-  auto *safetyLayout = new QHBoxLayout(m_safetyAreaContainer);
+    dependentLayout->setSpacing(8);
 
-  safetyLayout->setContentsMargins(0, 0, 0, 0);
+    m_cropCheckBox = new QCheckBox(tr("Recortar imágenes al tamaño de InDesign"),
+                                   dependentControls);
 
-  auto *safetyLabel =
-      new QLabel(tr("Área de seguridad:"), m_safetyAreaContainer);
+    m_cropCheckBox->setChecked(true);
 
-  m_safetyAreaSpin = new QDoubleSpinBox(m_safetyAreaContainer);
+    dependentLayout->addWidget(m_cropCheckBox);
 
-  m_safetyAreaSpin->setRange(0.0, 1000.0);
-  m_safetyAreaSpin->setDecimals(2);
-  m_safetyAreaSpin->setSingleStep(0.5);
-  m_safetyAreaSpin->setValue(3.0);
+    // Área de seguridad
+    m_safetyAreaContainer = new QWidget(dependentControls);
 
-  m_safetyAreaUnitCombo = new QComboBox(m_safetyAreaContainer);
+    auto *safetyLayout = new QHBoxLayout(m_safetyAreaContainer);
 
-  m_safetyAreaUnitCombo->addItems({tr("mm"), tr("cm"), tr("in")});
+    safetyLayout->setContentsMargins(0, 0, 0, 0);
 
-  safetyLayout->addWidget(safetyLabel);
-  safetyLayout->addWidget(m_safetyAreaSpin);
-  safetyLayout->addWidget(m_safetyAreaUnitCombo);
-  safetyLayout->addStretch();
+    auto *safetyLabel =
+        new QLabel(tr("Área de seguridad:"), m_safetyAreaContainer);
 
-  dependentLayout->addWidget(m_safetyAreaContainer);
+    m_safetyAreaSpin = new QDoubleSpinBox(m_safetyAreaContainer);
 
-  optimizationLayout->addWidget(dependentControls);
+    m_safetyAreaSpin->setRange(0.0, 1000.0);
+    m_safetyAreaSpin->setDecimals(2);
+    m_safetyAreaSpin->setSingleStep(0.5);
+    m_safetyAreaSpin->setValue(3.0);
 
-  // ---------------------------------------------------------
-  // Resample only
-  // ---------------------------------------------------------
+    m_safetyAreaUnitCombo = new QComboBox(m_safetyAreaContainer);
 
-  m_resampleOnlyRadio = new QRadioButton(tr("Solo cambiar la resolución "
-                                            "a la resolución deseada"),
-                                         optimizationGroup);
+    m_safetyAreaUnitCombo->addItems({tr("mm"), tr("cm"), tr("in")});
 
-  optimizationLayout->addWidget(m_resampleOnlyRadio);
+    safetyLayout->addWidget(safetyLabel);
+    safetyLayout->addWidget(m_safetyAreaSpin);
+    safetyLayout->addWidget(m_safetyAreaUnitCombo);
+    safetyLayout->addStretch();
 
-  auto *explanationLabel =
-      new QLabel(tr("Las imágenes no serán escaladas ni recortadas. "
-                    "Las dimensiones de las imágenes no variarán."),
-                 optimizationGroup);
+    dependentLayout->addWidget(m_safetyAreaContainer);
 
-  explanationLabel->setWordWrap(true);
+    optimizationLayout->addWidget(dependentControls);
 
-  // Secondary/disabled-looking native palette text.
-  QPalette secondaryPalette = explanationLabel->palette();
+    // ---------------------------------------------------------
+    // Resample only
+    // ---------------------------------------------------------
 
-  secondaryPalette.setColor(
-      QPalette::WindowText,
-      secondaryPalette.color(QPalette::Disabled, QPalette::WindowText));
+    m_resampleOnlyRadio = new QRadioButton(tr("Solo cambiar la resolución "
+                                              "a la resolución deseada"),
+                                           optimizationGroup);
 
-  explanationLabel->setPalette(secondaryPalette);
+    optimizationLayout->addWidget(m_resampleOnlyRadio);
 
-  auto *explanationLayout = new QHBoxLayout;
+    auto *explanationLabel =
+        new QLabel(tr("Las imágenes no serán escaladas ni recortadas. "
+                      "Las dimensiones de las imágenes no variarán."),
+                   optimizationGroup);
 
-  explanationLayout->setContentsMargins(24, 0, 0, 0);
+    explanationLabel->setWordWrap(true);
 
-  explanationLayout->addWidget(explanationLabel);
+    // Secondary/disabled-looking native palette text.
+    QPalette secondaryPalette = explanationLabel->palette();
 
-  optimizationLayout->addLayout(explanationLayout);
+    secondaryPalette.setColor(
+        QPalette::WindowText,
+        secondaryPalette.color(QPalette::Disabled, QPalette::WindowText));
 
-  mainLayout->addWidget(optimizationGroup);
+    explanationLabel->setPalette(secondaryPalette);
 
-  mainLayout->addStretch();
+    auto *explanationLayout = new QHBoxLayout;
+
+    explanationLayout->setContentsMargins(24, 0, 0, 0);
+
+    explanationLayout->addWidget(explanationLabel);
+
+    optimizationLayout->addLayout(explanationLayout);
+
+    mainLayout->addWidget(optimizationGroup);
+
+    mainLayout->addStretch();
 }
 
 void ResolutionTab::setupConnections()
@@ -354,14 +367,14 @@ void ResolutionTab::updateResolutionUnits()
 }
 
 void ResolutionTab::updateOptimizationControls() {
-  const bool scaleAndResample = m_scaleAndResampleRadio->isChecked();
+    const bool scaleAndResample = m_scaleAndResampleRadio->isChecked();
 
-  m_cropCheckBox->setEnabled(scaleAndResample);
+    m_cropCheckBox->setEnabled(scaleAndResample);
 
-  const bool safetyAreaEnabled =
-      scaleAndResample && m_cropCheckBox->isChecked();
+    const bool safetyAreaEnabled =
+        scaleAndResample && m_cropCheckBox->isChecked();
 
-  m_safetyAreaContainer->setEnabled(safetyAreaEnabled);
+    m_safetyAreaContainer->setEnabled(safetyAreaEnabled);
 }
 
 
