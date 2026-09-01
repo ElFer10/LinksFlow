@@ -1,5 +1,6 @@
 #include "configurationpage.h"
 #include "configuration/resolutiontab.h"
+#include "configuration/summarypannel.h"
 
 #include <QComboBox>
 #include <QFrame>
@@ -9,8 +10,21 @@
 #include <QTabWidget>
 #include <QVBoxLayout>
 
-ConfigurationPage::ConfigurationPage(QWidget *parent) : QWidget(parent) {
-  setupUi();
+ConfigurationPage::ConfigurationPage(QWidget *parent)
+    : QWidget(parent)
+{
+    m_preset.id =
+        QStringLiteral("default");
+
+    m_preset.name =
+        tr("Predeterminado");
+
+    m_preset.builtIn = true;
+
+    setupUi();
+    setupConnections();
+
+    updateUiFromPreset();
 }
 
 void ConfigurationPage::setupUi() {
@@ -80,11 +94,10 @@ void ConfigurationPage::setupUi() {
 
   mainLayout->addLayout(presetLayout);
 
-  // Separaådor
+  // Separador
   auto *topSeparador = new QFrame(this);      // Se crea un frame separador
   topSeparador->setFrameShape(QFrame::HLine); // El frame será una línea
-  topSeparador->setFrameShadow(
-      QFrame::Sunken); // Establece el tipo de sombra a hundido
+  topSeparador->setFrameShadow(QFrame::Sunken); // Establece el tipo de sombra a hundido
 
   mainLayout->addWidget(topSeparador);
 
@@ -98,11 +111,12 @@ void ConfigurationPage::setupUi() {
 
   auto *tabs = new QTabWidget(this);
 
-  auto *resolutionPage = new ResolutionTab(tabs);
+  // auto *resolutionPage = new ResolutionTab(tabs);
+  m_resolutionTab = new ResolutionTab(tabs);
   auto *editingPage = new QWidget(tabs);
   auto *conversionPage = new QWidget(tabs);
 
-  tabs->addTab(resolutionPage, tr("Resolución"));
+  tabs->addTab(m_resolutionTab, tr("Resolución"));
   tabs->addTab(editingPage, tr("Edición de imágenes"));
   tabs->addTab(conversionPage, tr("Conversión de imágenes"));
 
@@ -116,45 +130,48 @@ void ConfigurationPage::setupUi() {
   summaryFrame->setMinimumWidth(250);
   summaryFrame->setMaximumWidth(300);
 
-  auto *summaryLayout = new QVBoxLayout(summaryFrame);
+  // auto *summaryLayout = new QVBoxLayout(summaryFrame);
+  //
+  // auto *summaryTitle = new QLabel(tr("Resumen"), summaryFrame);
+  //
+  // QFont titleFont = summaryTitle->font();
+  // titleFont.setBold(true);
+  // summaryTitle->setFont(titleFont);
+  //
+  // summaryLayout->addWidget(summaryTitle);
+  //
+  // auto *summarySeparator = new QFrame(summaryFrame);
+  // summarySeparator->setFrameShape(QFrame::HLine);
+  //
+  // summaryLayout->addWidget(summarySeparator);
+  //
+  // auto *summaryPlaceholder = new QLabel(tr("Preset: Predeterminado\n\n"
+  //                                          "Resolución efectiva deseada\n"
+  //                                          "Color / Escala de grises: —\n"
+  //                                          "Monochrome: —\n\n"
+  //                                          "Método de optimización\n"
+  //                                          "—\n\n"
+  //                                          "Edición de imágenes\n"
+  //                                          "—\n\n"
+  //                                          "Conversión de imágenes\n"
+  //                                          "—"),
+  //                                       summaryFrame);
+  //
+  // summaryPlaceholder->setAlignment(Qt::AlignLeft | Qt::AlignTop);
+  // summaryPlaceholder->setWordWrap(true);
+  //
+  // summaryLayout->addWidget(summaryPlaceholder);
+  // summaryLayout->addStretch();
+  //
+  // auto *resetButton =
+  //     new QPushButton(tr("Resetear la configuración"), summaryFrame);
+  //
+  // summaryLayout->addWidget(resetButton);
+  //
+  // contentLayout->addWidget(summaryFrame);
 
-  auto *summaryTitle = new QLabel(tr("Resumen"), summaryFrame);
-
-  QFont titleFont = summaryTitle->font();
-  titleFont.setBold(true);
-  summaryTitle->setFont(titleFont);
-
-  summaryLayout->addWidget(summaryTitle);
-
-  auto *summarySeparator = new QFrame(summaryFrame);
-  summarySeparator->setFrameShape(QFrame::HLine);
-
-  summaryLayout->addWidget(summarySeparator);
-
-  auto *summaryPlaceholder = new QLabel(tr("Preset: Predeterminado\n\n"
-                                           "Resolución efectiva deseada\n"
-                                           "Color / Escala de grises: —\n"
-                                           "Monochrome: —\n\n"
-                                           "Método de optimización\n"
-                                           "—\n\n"
-                                           "Edición de imágenes\n"
-                                           "—\n\n"
-                                           "Conversión de imágenes\n"
-                                           "—"),
-                                        summaryFrame);
-
-  summaryPlaceholder->setAlignment(Qt::AlignLeft | Qt::AlignTop);
-  summaryPlaceholder->setWordWrap(true);
-
-  summaryLayout->addWidget(summaryPlaceholder);
-  summaryLayout->addStretch();
-
-  auto *resetButton =
-      new QPushButton(tr("Resetear la configuración"), summaryFrame);
-
-  summaryLayout->addWidget(resetButton);
-
-  contentLayout->addWidget(summaryFrame);
+  m_summaryPanel = new SummaryPanel(this);
+  contentLayout->addWidget(m_summaryPanel);
 
   mainLayout->addLayout(contentLayout, 1);
 
@@ -200,4 +217,50 @@ void ConfigurationPage::setupUi() {
 
   connect(exitButton, &QPushButton::clicked, this,
           &ConfigurationPage::exitRequested);
+}
+
+void ConfigurationPage::setupConnections()
+{
+    connect(
+        m_resolutionTab,
+        &ResolutionTab::settingsChanged,
+        this,
+        &ConfigurationPage::updatePresetFromUi
+    );
+
+    connect(
+        m_summaryPanel,
+        &SummaryPanel::resetRequested,
+        this,
+        &ConfigurationPage::resetPreset
+    );
+}
+
+void ConfigurationPage::updatePresetFromUi()
+{
+    m_preset.resolution =
+        m_resolutionTab->settings();
+
+    m_summaryPanel->setPreset(
+        m_preset
+    );
+}
+
+void ConfigurationPage::updateUiFromPreset()
+{
+    m_resolutionTab->setSettings(
+        m_preset.resolution
+    );
+
+    m_summaryPanel->setPreset(
+        m_preset
+    );
+}
+
+void ConfigurationPage::resetPreset()
+{
+    m_preset.resolution =
+        ResolutionSettings{};
+
+    updateUiFromPreset();
 }

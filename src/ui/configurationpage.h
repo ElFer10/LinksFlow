@@ -2,6 +2,11 @@
 
 #include <QWidget>
 
+#include "../domain/preset.h"
+
+class ResolutionTab;
+class SummaryPanel;
+
 class ConfigurationPage : public QWidget
 {
     Q_OBJECT
@@ -16,5 +21,15 @@ signals:
 
 private:
     void setupUi();
+    void setupConnections();
 
+    void updatePresetFromUi();
+    void updateUiFromPreset();
+    void resetPreset();
+
+private:
+    Preset m_preset;
+
+    ResolutionTab *m_resolutionTab = nullptr;
+    SummaryPanel *m_summaryPanel = nullptr;
 };
