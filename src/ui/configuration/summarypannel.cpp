@@ -4,6 +4,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
+#include <QStringList>
 
 SummaryPanel::SummaryPanel(QWidget *parent)
     : QFrame(parent)
@@ -138,6 +139,7 @@ void SummaryPanel::setupUi()
 
     m_editingValue =
         new QLabel(tr("Sin configurar"), this);
+m_editingValue->setWordWrap(true);
 
     layout->addWidget(m_editingValue);
 
@@ -273,6 +275,11 @@ void SummaryPanel::setPreset(
 
         m_safetyAreaValue->clear();
     }
+m_editingValue->setText(
+    imageEditingSummary(
+        preset.imageEditing
+    )
+);
 }
 
 QString SummaryPanel::resolutionUnitText(
@@ -284,4 +291,74 @@ QString SummaryPanel::resolutionUnitText(
     }
 
     return tr("px/cm");
+}
+
+QString SummaryPanel::colorModeText(
+    ColorMode mode
+) const
+{
+    switch (mode) {
+    case ColorMode::CMYK:
+        return tr("CMYK");
+
+    case ColorMode::Grayscale:
+        return tr("Escala de grises");
+
+    default:
+        return tr("RGB");
+    }
+}
+
+QString SummaryPanel::imageEditingSummary(
+    const ImageEditingSettings &settings
+) const
+{
+    QStringList lines;
+
+    if (settings.changeColorMode) {
+        lines << tr("Modo: %1 → %2")
+                     .arg(
+                         colorModeText(
+                             settings.sourceColorMode
+                         ),
+                         colorModeText(
+                             settings.destinationColorMode
+                         )
+                     );
+    }
+
+    if (settings.changeColorProfile) {
+        lines << tr("Perfil ICC: %1")
+                     .arg(settings.iccProfile);
+    }
+
+    if (settings.removeHiddenLayers) {
+        lines << tr("Eliminar capas ocultas");
+    }
+
+    if (settings.mergeVisibleLayers) {
+        lines << tr("Combinar capas visibles");
+    }
+
+    if (settings.flattenImage) {
+        lines << tr("Acoplar imagen");
+    }
+
+    if (
+        settings.alphaChannels ==
+        AlphaChannelHandling::Remove
+    ) {
+        lines << tr("Eliminar canales alfa");
+    }
+    else {
+        lines << tr("Conservar canales alfa");
+    }
+
+    if (lines.isEmpty()) {
+        return tr("Sin cambios");
+    }
+
+    return lines.join(
+        QStringLiteral("\n")
+    );
 }

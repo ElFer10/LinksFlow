@@ -1,6 +1,7 @@
 #pragma once
 
 #include "resolutionsettings.h"
+#include "imageeditingsettings.h"
 
 #include <QString>
 
@@ -12,4 +13,5 @@ struct Preset
     bool builtIn = true;
 
     ResolutionSettings resolution;
+    ImageEditingSettings imageEditing;
 };

@@ -16,9 +16,12 @@ qt_add_executable(LinksFlow
     src/ui/configuration/resolutiontab.h
     src/ui/configuration/resolutiontab.cpp
     src/domain/resolutionsettings.h
+    src/domain/imageeditingsettings.h
     src/domain/preset.h
     src/ui/configuration/summarypannel.cpp
     src/ui/configuration/summarypannel.h
+    src/ui/configuration/imageeditingtab.cpp
+    src/ui/configuration/imageeditingtab.h
 )
 
 target_link_libraries(LinksFlow

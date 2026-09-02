@@ -23,9 +23,9 @@ signals:
 private:
     void setupUi();
 
-    QString resolutionUnitText(
-        ResolutionUnit unit
-    ) const;
+    QString resolutionUnitText( ResolutionUnit unit) const;
+    QString colorModeText( ColorMode mode) const;
+    QString imageEditingSummary( const ImageEditingSettings &settings) const;
 
 private:
     QLabel *m_presetValue = nullptr;

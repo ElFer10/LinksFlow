@@ -1,6 +1,7 @@
 #include "configurationpage.h"
 #include "configuration/resolutiontab.h"
 #include "configuration/summarypannel.h"
+#include "configuration/imageeditingtab.h"
 
 #include <QComboBox>
 #include <QFrame>
@@ -113,11 +114,11 @@ void ConfigurationPage::setupUi() {
 
   // auto *resolutionPage = new ResolutionTab(tabs);
   m_resolutionTab = new ResolutionTab(tabs);
-  auto *editingPage = new QWidget(tabs);
+  m_imageEditingTab = new ImageEditingTab(tabs);
   auto *conversionPage = new QWidget(tabs);
 
   tabs->addTab(m_resolutionTab, tr("Resolución"));
-  tabs->addTab(editingPage, tr("Edición de imágenes"));
+  tabs->addTab(m_imageEditingTab, tr("Edición de imágenes"));
   tabs->addTab(conversionPage, tr("Conversión de imágenes"));
 
   contentLayout->addWidget(tabs, 1);
@@ -188,6 +189,12 @@ void ConfigurationPage::setupConnections()
         this,
         &ConfigurationPage::resetPreset
     );
+    connect(
+        m_imageEditingTab,
+        &ImageEditingTab::settingsChanged,
+        this,
+        &ConfigurationPage::updatePresetFromUi
+    );
 }
 
 void ConfigurationPage::updatePresetFromUi()
@@ -195,26 +202,24 @@ void ConfigurationPage::updatePresetFromUi()
     m_preset.resolution =
         m_resolutionTab->settings();
 
-    m_summaryPanel->setPreset(
-        m_preset
-    );
+    m_preset.imageEditing = m_imageEditingTab->settings();
+
+    m_summaryPanel->setPreset( m_preset);
 }
 
 void ConfigurationPage::updateUiFromPreset()
 {
-    m_resolutionTab->setSettings(
-        m_preset.resolution
-    );
-
-    m_summaryPanel->setPreset(
-        m_preset
-    );
+    m_resolutionTab->setSettings( m_preset.resolution);
+    m_imageEditingTab->setSettings( m_preset.imageEditing);
+    m_summaryPanel->setPreset( m_preset);
 }
 
 void ConfigurationPage::resetPreset()
 {
     m_preset.resolution =
         ResolutionSettings{};
+     m_preset.imageEditing =
+        ImageEditingSettings{};
 
     updateUiFromPreset();
 }

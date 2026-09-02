@@ -6,6 +6,7 @@
 
 class ResolutionTab;
 class SummaryPanel;
+class ImageEditingTab;
 
 class ConfigurationPage : public QWidget
 {
@@ -32,4 +33,5 @@ private:
 
     ResolutionTab *m_resolutionTab = nullptr;
     SummaryPanel *m_summaryPanel = nullptr;
+    ImageEditingTab *m_imageEditingTab = nullptr;
 };
