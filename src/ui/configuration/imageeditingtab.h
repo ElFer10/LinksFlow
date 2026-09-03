@@ -25,7 +25,7 @@ private:
   void setupUi();
   void setupConnections();
 
-  void updateColorModeContols();
+  void updateColorModeControls();
   void updateColorProfileControls();
 
   QString colorModeText(ColorMode mode) const;

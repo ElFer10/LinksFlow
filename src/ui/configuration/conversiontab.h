@@ -19,16 +19,12 @@ public:
 
     ConversionSettings settings() const;
 
-    void setSettings(
-        const ConversionSettings &settings
-    );
+    void setSettings( const ConversionSettings &settings);
 
 signals:
     void settingsChanged();
 
-    void optionsRequested(
-        int ruleIndex
-    );
+    // void optionsRequested( int ruleIndex);
 
 private:
     void setupUi();

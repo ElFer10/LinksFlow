@@ -39,6 +39,10 @@ public:
     );
 
     static QList<ImageFormat> availableFormats();
+    void setRuleOptions(
+        int row,
+        const QVariantMap &options
+        );
 
 signals:
     void settingsChanged();

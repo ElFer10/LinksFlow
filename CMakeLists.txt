@@ -32,6 +32,9 @@ qt_add_executable(LinksFlow
     src/ui/configuration/conversionformatdelegate.h
     src/ui/configuration/conversiontab.cpp
     src/ui/configuration/conversiontab.h
+    src/ui/configuration/conversionoptionsdialog.cpp
+    src/ui/configuration/conversionoptionsdialog.h
+
 )
 
 target_link_libraries(LinksFlow

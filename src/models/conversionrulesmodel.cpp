@@ -1,16 +1,11 @@
 #include "conversionrulesmodel.h"
 
-ConversionRulesModel::ConversionRulesModel(
-    QObject *parent
-)
-    : QAbstractTableModel(parent)
+ConversionRulesModel::ConversionRulesModel(QObject *parent) : QAbstractTableModel(parent)
 {
     createDefaultRules();
 }
 
-int ConversionRulesModel::rowCount(
-    const QModelIndex &parent
-) const
+int ConversionRulesModel::rowCount(const QModelIndex &parent) const
 {
     if (parent.isValid()) {
         return 0;
@@ -19,9 +14,7 @@ int ConversionRulesModel::rowCount(
     return m_rules.size();
 }
 
-int ConversionRulesModel::columnCount(
-    const QModelIndex &parent
-) const
+int ConversionRulesModel::columnCount(const QModelIndex &parent) const
 {
     if (parent.isValid()) {
         return 0;
@@ -30,10 +23,7 @@ int ConversionRulesModel::columnCount(
     return ColumnCount;
 }
 
-QVariant ConversionRulesModel::data(
-    const QModelIndex &index,
-    int role
-) const
+QVariant ConversionRulesModel::data(const QModelIndex &index, int role) const
 {
     if (
         !index.isValid() ||
@@ -133,17 +123,10 @@ bool ConversionRulesModel::setData(
         return false;
     }
 
-    rule.destinationFormat =
-        newFormat;
+    rule.destinationFormat = newFormat;
+    rule.options.clear();
 
-    emit dataChanged(
-        index,
-        index,
-        {
-            Qt::DisplayRole,
-            Qt::EditRole
-        }
-    );
+    emit dataChanged(index, index, { Qt::DisplayRole, Qt::EditRole });
 
     emit settingsChanged();
 
@@ -368,4 +351,36 @@ ConversionRule ConversionRulesModel::ruleAt(
     }
 
     return m_rules.at(row);
+}
+
+void ConversionRulesModel::setRuleOptions(
+    int row,
+    const QVariantMap &options
+    )
+{
+    if (
+        row < 0 ||
+        row >= m_rules.size()
+        ) {
+        return;
+    }
+
+    if (m_rules[row].options == options) {
+        return;
+    }
+
+    m_rules[row].options = options;
+
+    const QModelIndex optionsIndex =
+        index(
+            row,
+            OptionsColumn
+            );
+
+    emit dataChanged(
+        optionsIndex,
+        optionsIndex
+        );
+
+    emit settingsChanged();
 }

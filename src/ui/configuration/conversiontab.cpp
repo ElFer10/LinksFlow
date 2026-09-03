@@ -1,8 +1,8 @@
-
 #include "conversiontab.h"
 
 #include "conversionformatdelegate.h"
 #include "../../models/conversionrulesmodel.h"
+#include "conversionoptionsdialog.h"
 
 #include <QAbstractItemView>
 #include <QCheckBox>
@@ -21,15 +21,9 @@ ConversionTab::ConversionTab(
 
 void ConversionTab::setupUi()
 {
-    auto *mainLayout =
-        new QVBoxLayout(this);
+    auto *mainLayout = new QVBoxLayout(this);
 
-    mainLayout->setContentsMargins(
-        16,
-        16,
-        16,
-        16
-    );
+    mainLayout->setContentsMargins(16, 16, 16, 16);
 
     mainLayout->setSpacing(12);
 
@@ -37,30 +31,20 @@ void ConversionTab::setupUi()
     // Master switch
     // ---------------------------------------------------------
 
-    m_conversionCheckBox =
-        new QCheckBox(
-            tr("Quiero convertir imágenes"),
-            this
-        );
-
-    mainLayout->addWidget(
-        m_conversionCheckBox
-    );
+    m_conversionCheckBox = new QCheckBox(tr("Quiero convertir imágenes"), this);
+    mainLayout->addWidget(m_conversionCheckBox);
 
     // ---------------------------------------------------------
     // Table
     // ---------------------------------------------------------
 
-    m_table =
-        new QTableView(this);
+    m_table = new QTableView(this);
 
-    m_model =
-        new ConversionRulesModel(m_table);
+    m_model = new ConversionRulesModel(m_table);
 
     m_table->setModel(m_model);
 
-    auto *formatDelegate =
-        new ConversionFormatDelegate(m_table);
+    auto *formatDelegate = new ConversionFormatDelegate(m_table);
 
     m_table->setItemDelegateForColumn(
         ConversionRulesModel::
@@ -149,31 +133,53 @@ void ConversionTab::setupConnections()
             }
         }
     );
-
-    connect(
-        m_table,
-        &QTableView::clicked,
-        this,
-        [this](const QModelIndex &index)
-        {
-            if (
-                !m_conversionCheckBox
-                     ->isChecked()
-            ) {
-                return;
-            }
-
-            if (
-                index.column() ==
-                ConversionRulesModel::
-                    OptionsColumn
-            ) {
-                emit optionsRequested(
-                    index.row()
-                );
-            }
+connect(
+    m_table,
+    &QTableView::clicked,
+    this,
+    [this](const QModelIndex &index)
+    {
+        if (
+            !m_conversionCheckBox->isChecked()
+        ) {
+            return;
         }
-    );
+
+        if (
+            index.column() !=
+            ConversionRulesModel::OptionsColumn
+        ) {
+            return;
+        }
+
+        const ConversionRule rule =
+            m_model->ruleAt(
+                index.row()
+            );
+
+        // No permitimos configurar una regla
+        // que no está activa.
+        if (!rule.enabled) {
+            return;
+        }
+
+        ConversionOptionsDialog dialog(
+            rule.destinationFormat,
+            rule.options,
+            this
+        );
+
+        if (
+            dialog.exec() ==
+            QDialog::Accepted
+        ) {
+            m_model->setRuleOptions(
+                index.row(),
+                dialog.options()
+            );
+        }
+    }
+);
 }
 
 ConversionSettings
