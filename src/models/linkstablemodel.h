@@ -61,6 +61,11 @@ public:
     QList<LinkInfo> links() const;
 
     LinkInfo linkAt(int row) const;
+    int processableCount() const;
+    int selectedForProcessingCount() const;
+
+signals:
+    void processSelectionChanged();
 
 private:
     QString formatFileSize(qint64 bytes) const;

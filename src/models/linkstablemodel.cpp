@@ -29,32 +29,21 @@ int LinksTableModel::columnCount(
     return ColumnCount;
 }
 
-QVariant LinksTableModel::data(
-    const QModelIndex &index,
-    int role
-    ) const
+QVariant LinksTableModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid()) {
         return {};
     }
 
-    if (
-        index.row() < 0 ||
-        index.row() >= m_links.size()
-        ) {
+    if (index.row() < 0 || index.row() >= m_links.size()) {
         return {};
     }
 
-    const LinkInfo &link =
-        m_links.at(index.row());
+    const LinkInfo &link = m_links.at(index.row());
+    const bool hasUnavailableMetadata = link.state == LinkProcessState::Missing || link.state == LinkProcessState::Error;
 
-    if (
-        index.column() == ProcessColumn &&
-        role == Qt::CheckStateRole
-        ) {
-        return link.process
-                   ? Qt::Checked
-                   : Qt::Unchecked;
+    if (index.column() == ProcessColumn && role == Qt::CheckStateRole) {
+        return link.process ? Qt::Checked : Qt::Unchecked;
     }
 
     if (role != Qt::DisplayRole) {
@@ -78,14 +67,20 @@ QVariant LinksTableModel::data(
         return link.colorMode;
 
     case SizeColumn:
-        return formatFileSize(
-            link.fileSizeBytes
-            );
+      if (hasUnavailableMetadata) {
+        return QStringLiteral("—");
+      }
 
-    case EffectiveResolutionColumn:
-        return formatResolution(
-            link.effectiveResolution
-            );
+      return formatFileSize(link.fileSizeBytes);
+
+   case EffectiveResolutionColumn:
+    if (hasUnavailableMetadata) {
+        return QStringLiteral("—");
+    }
+
+    return formatResolution(
+        link.effectiveResolution
+    );
 
     case IccProfileColumn:
         return link.iccProfile;
@@ -112,15 +107,11 @@ bool LinksTableModel::setData(
         return false;
     }
 
-    if (
-        index.column() != ProcessColumn ||
-        role != Qt::CheckStateRole
-        ) {
+    if ( index.column() != ProcessColumn || role != Qt::CheckStateRole ) {
         return false;
     }
 
-    LinkInfo &link =
-        m_links[index.row()];
+    LinkInfo &link = m_links[index.row()];
 
     const bool checked =
         value.toInt() == Qt::Checked;
@@ -131,11 +122,8 @@ bool LinksTableModel::setData(
 
     link.process = checked;
 
-    emit dataChanged(
-        index,
-        index,
-        {Qt::CheckStateRole}
-        );
+    emit dataChanged(index, index, {Qt::CheckStateRole});
+    emit processSelectionChanged();
 
     return true;
 }
@@ -321,4 +309,33 @@ bool LinksTableModel::resolutionsAreEqual(
                resolution.x -
                resolution.y
                ) < tolerance;
+}
+
+int LinksTableModel::processableCount() const
+{
+    int count = 0;
+
+    for (const LinkInfo &link : m_links) {
+        if (link.state == LinkProcessState::Ready) {
+            ++count;
+        }
+    }
+
+    return count;
+}
+
+int LinksTableModel::selectedForProcessingCount() const
+{
+    int count = 0;
+
+    for (const LinkInfo &link : m_links) {
+        if (
+            link.state == LinkProcessState::Ready &&
+            link.process
+        ) {
+            ++count;
+        }
+    }
+
+    return count;
 }
