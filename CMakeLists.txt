@@ -34,7 +34,11 @@ qt_add_executable(LinksFlow
     src/ui/configuration/conversiontab.h
     src/ui/configuration/conversionoptionsdialog.cpp
     src/ui/configuration/conversionoptionsdialog.h
-
+    src/domain/linkinfo.h
+    src/models/linkstablemodel.cpp
+    src/models/linkstablemodel.h
+    src/ui/analysis/analysispage.cpp
+    src/ui/analysis/analysispage.h
 )
 
 target_link_libraries(LinksFlow
