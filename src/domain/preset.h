@@ -1,6 +1,7 @@
 #pragma once
 
 #include "resolutionsettings.h"
+#include "conversionsettings.h"
 #include "imageeditingsettings.h"
 
 #include <QString>
@@ -14,4 +15,5 @@ struct Preset
 
     ResolutionSettings resolution;
     ImageEditingSettings imageEditing;
+    ConversionSettings conversion;
 };

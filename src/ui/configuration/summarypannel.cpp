@@ -280,6 +280,36 @@ m_editingValue->setText(
         preset.imageEditing
     )
 );
+
+if (!preset.conversion.enabled) {
+    m_conversionValue->setText(
+        tr("Desactivada")
+    );
+}
+else {
+    int enabledRules = 0;
+
+    for (
+        const ConversionRule &rule :
+        preset.conversion.rules
+    ) {
+        if (rule.enabled) {
+            ++enabledRules;
+        }
+    }
+
+    if (enabledRules == 0) {
+        m_conversionValue->setText(
+            tr("Activada · Sin reglas")
+        );
+    }
+    else {
+        m_conversionValue->setText(
+            tr("Activada (%1 reglas)")
+                .arg(enabledRules)
+        );
+    }
+}
 }
 
 QString SummaryPanel::resolutionUnitText(

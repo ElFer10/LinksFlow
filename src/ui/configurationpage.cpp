@@ -1,7 +1,8 @@
 #include "configurationpage.h"
+#include "configuration/conversiontab.h"
+#include "configuration/imageeditingtab.h"
 #include "configuration/resolutiontab.h"
 #include "configuration/summarypannel.h"
-#include "configuration/imageeditingtab.h"
 
 #include <QComboBox>
 #include <QFrame>
@@ -11,51 +12,20 @@
 #include <QTabWidget>
 #include <QVBoxLayout>
 
-ConfigurationPage::ConfigurationPage(QWidget *parent)
-    : QWidget(parent)
-{
-    m_preset.id =
-        QStringLiteral("default");
+ConfigurationPage::ConfigurationPage(QWidget *parent) : QWidget(parent) {
+  m_preset.id = QStringLiteral("default");
 
-    m_preset.name =
-        tr("Predeterminado");
+  m_preset.name = tr("Predeterminado");
 
-    m_preset.builtIn = true;
+  m_preset.builtIn = true;
 
-    setupUi();
-    setupConnections();
+  setupUi();
+  setupConnections();
 
-    updateUiFromPreset();
+  updateUiFromPreset();
 }
 
 void ConfigurationPage::setupUi() {
-
-  /*
-
-  Esta es la idea
-
-  ┌───────────────────────────────────────────────────────────────────┐
-  │ Preset: [Predeterminado ▼] [Nuevo] [Guardar] [...]                │
-  ├───────────────────────────────────────────────────────────────────┤
-  │                                                                   │
-  │ ┌────────────────────────────────────┐ ┌────────────────────────┐ │
-  │ │ Resolución │ Edición │ Conversión  │ │ Resumen                │ │
-  │ │                                    │ │ ────────────────────── │ │
-  │ │                                    │ │ Preset: Predeterminado │ │
-  │ │                                    │ │                        │ │
-  │ │                                    │ │ Resolución             │ │
-  │ │                                    │ │ ...                    │ │
-  │ │                                    │ │                        │ │
-  │ │                                    │ │                        │ │
-  │ │                                    │ │                        │ │
-  │ │                                    │ │                        │ │
-  │ │                                    │ │ [Resetear...]          │ │
-  │ └────────────────────────────────────┘ └────────────────────────┘ │
-  ├───────────────────────────────────────────────────────────────────┤
-  │ [Ayuda]                         [Analizar documento]      [Salir] │
-  └───────────────────────────────────────────────────────────────────┘
-
-  */
 
   // Configuración de interfaz
   int margin = 12;
@@ -115,11 +85,11 @@ void ConfigurationPage::setupUi() {
   // auto *resolutionPage = new ResolutionTab(tabs);
   m_resolutionTab = new ResolutionTab(tabs);
   m_imageEditingTab = new ImageEditingTab(tabs);
-  auto *conversionPage = new QWidget(tabs);
+  m_conversionTab = new ConversionTab(tabs);
 
   tabs->addTab(m_resolutionTab, tr("Resolución"));
   tabs->addTab(m_imageEditingTab, tr("Edición de imágenes"));
-  tabs->addTab(conversionPage, tr("Conversión de imágenes"));
+  tabs->addTab(m_conversionTab, tr("Conversión de imágenes"));
 
   contentLayout->addWidget(tabs, 1);
 
@@ -174,52 +144,40 @@ void ConfigurationPage::setupUi() {
           &ConfigurationPage::exitRequested);
 }
 
-void ConfigurationPage::setupConnections()
-{
-    connect(
-        m_resolutionTab,
-        &ResolutionTab::settingsChanged,
-        this,
-        &ConfigurationPage::updatePresetFromUi
-    );
+void ConfigurationPage::setupConnections() {
+  connect(m_resolutionTab, &ResolutionTab::settingsChanged, this,
+          &ConfigurationPage::updatePresetFromUi);
 
-    connect(
-        m_summaryPanel,
-        &SummaryPanel::resetRequested,
-        this,
-        &ConfigurationPage::resetPreset
-    );
-    connect(
-        m_imageEditingTab,
-        &ImageEditingTab::settingsChanged,
-        this,
-        &ConfigurationPage::updatePresetFromUi
-    );
+  connect(m_summaryPanel, &SummaryPanel::resetRequested, this,
+          &ConfigurationPage::resetPreset);
+  connect(m_imageEditingTab, &ImageEditingTab::settingsChanged, this,
+          &ConfigurationPage::updatePresetFromUi);
+
+  connect(m_conversionTab, &ConversionTab::settingsChanged, this,
+          &ConfigurationPage::updatePresetFromUi);
 }
 
-void ConfigurationPage::updatePresetFromUi()
-{
-    m_preset.resolution =
-        m_resolutionTab->settings();
+void ConfigurationPage::updatePresetFromUi() {
+  m_preset.resolution = m_resolutionTab->settings();
 
-    m_preset.imageEditing = m_imageEditingTab->settings();
+  m_preset.imageEditing = m_imageEditingTab->settings();
 
-    m_summaryPanel->setPreset( m_preset);
+  m_preset.conversion = m_conversionTab->settings();
+
+  m_summaryPanel->setPreset(m_preset);
 }
 
-void ConfigurationPage::updateUiFromPreset()
-{
-    m_resolutionTab->setSettings( m_preset.resolution);
-    m_imageEditingTab->setSettings( m_preset.imageEditing);
-    m_summaryPanel->setPreset( m_preset);
+void ConfigurationPage::updateUiFromPreset() {
+  m_resolutionTab->setSettings(m_preset.resolution);
+  m_imageEditingTab->setSettings(m_preset.imageEditing);
+  m_conversionTab->setSettings(m_preset.conversion);
+  m_summaryPanel->setPreset(m_preset);
 }
 
-void ConfigurationPage::resetPreset()
-{
-    m_preset.resolution =
-        ResolutionSettings{};
-     m_preset.imageEditing =
-        ImageEditingSettings{};
+void ConfigurationPage::resetPreset() {
+  m_preset.resolution = ResolutionSettings{};
+  m_preset.imageEditing = ImageEditingSettings{};
+  m_preset.conversion = ConversionSettings{};
 
-    updateUiFromPreset();
+  updateUiFromPreset();
 }

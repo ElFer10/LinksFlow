@@ -22,6 +22,16 @@ qt_add_executable(LinksFlow
     src/ui/configuration/summarypannel.h
     src/ui/configuration/imageeditingtab.cpp
     src/ui/configuration/imageeditingtab.h
+    src/domain/conversionsettings.h
+    src/ui/configuration/conversionformatdelegate.cpp
+    src/ui/configuration/conversionformatdelegate.h
+    src/domain/conversionsettings.h
+    src/models/conversionrulesmodel.cpp
+    src/models/conversionrulesmodel.h
+    src/ui/configuration/conversionformatdelegate.cpp
+    src/ui/configuration/conversionformatdelegate.h
+    src/ui/configuration/conversiontab.cpp
+    src/ui/configuration/conversiontab.h
 )
 
 target_link_libraries(LinksFlow
