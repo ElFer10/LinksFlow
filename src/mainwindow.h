@@ -5,6 +5,7 @@
 class QStackedWidget;
 class AnalysisPage;
 class InDesignBridge;
+class AdobeBridgeTransport;
 
 class MainWindow : public QMainWindow {
   Q_OBJECT
@@ -19,4 +20,6 @@ private:
   QStackedWidget *m_pages = nullptr;
   AnalysisPage *m_analysisPage = nullptr;
   InDesignBridge *m_indesignBridge = nullptr;
+
+  AdobeBridgeTransport *m_adobeTransport = nullptr;
 };

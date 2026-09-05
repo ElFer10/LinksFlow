@@ -1,0 +1,23 @@
+{
+  "manifestVersion": 5,
+  "id": "com.linksflow.indesign.bridge.dev",
+  "name": "LinksFlow Bridge",
+  "version": "0.1.0",
+  "main": "index.js",
+  "host": {
+    "app": "ID",
+    "minVersion": "18.5.0"
+  },
+  "entrypoints": [
+    {
+      "type": "command",
+      "id": "connectToLinksFlow",
+      "label": "Connect to LinksFlow"
+    }
+  ],
+  "requiredPermissions": {
+    "network": {
+      "domains": "all"
+    }
+  }
+}

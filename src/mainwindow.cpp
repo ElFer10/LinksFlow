@@ -5,7 +5,9 @@
 #include "ui/analysis/analysispage.h"
 #include "ui/configurationpage.h"
 
+#include "services/adobebridgetransport.h"
 #include <QApplication>
+#include <QDebug>
 #include <QMessageBox>
 #include <QStackedWidget>
 #include <QString>
@@ -16,6 +18,21 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   const QString appName{"LinksFlow"};
 
   createInterface();
+  m_adobeTransport = new AdobeBridgeTransport(this);
+
+  connect(m_adobeTransport, &AdobeBridgeTransport::clientConnected, this,
+          []() { qDebug() << "Adobe Bridge conectado"; });
+
+  connect(m_adobeTransport, &AdobeBridgeTransport::clientDisconnected, this,
+          []() { qDebug() << "Adobe Bridge desconectado"; });
+
+  connect(
+      m_adobeTransport, &AdobeBridgeTransport::textMessageReceived, this,
+      [](const QString &message) { qDebug() << "Mensaje Adobe:" << message; });
+
+  if (!m_adobeTransport->start(17321)) {
+    qWarning() << "No se pudo iniciar Adobe Bridge";
+  }
 
   resize(winWidth, winHeight);
   setMinimumSize(minWinWidth, minWinHeight);

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.19)
 project(LinksFlow LANGUAGES CXX)
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets WebSockets)
 
 qt_standard_project_setup()
 
@@ -48,6 +48,8 @@ qt_add_executable(LinksFlow
     src/services/indesignanalysisparser.h
     src/services/adobeindesignbridge.cpp
     src/services/adobeindesignbridge.h
+    src/services/adobebridgetransport.cpp
+    src/services/adobebridgetransport.h
 )
 
 target_link_libraries(LinksFlow
@@ -55,6 +57,7 @@ target_link_libraries(LinksFlow
         Qt::Core
         Qt::Gui
         Qt::Widgets
+        Qt::WebSockets
 )
 
 install(TARGETS LinksFlow
