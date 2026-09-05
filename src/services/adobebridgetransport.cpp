@@ -61,3 +61,11 @@ void AdobeBridgeTransport::stop() {
 bool AdobeBridgeTransport::isListening() const {
   return m_server.isListening();
 }
+
+void AdobeBridgeTransport::sendTextMessage(const QString &message) {
+  if (!m_client) {
+    return;
+  }
+
+  m_client->sendTextMessage(message);
+}

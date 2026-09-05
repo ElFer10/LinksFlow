@@ -21,7 +21,16 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   m_adobeTransport = new AdobeBridgeTransport(this);
 
   connect(m_adobeTransport, &AdobeBridgeTransport::clientConnected, this,
-          []() { qDebug() << "Adobe Bridge conectado"; });
+          [this]() {
+            qDebug() << "Adobe Bridge conectado";
+
+            m_adobeTransport->sendTextMessage(QStringLiteral(
+                R"({
+                    "version": 1,
+                    "id": "ping-1",
+                    "command": "ping"
+                })"));
+          });
 
   connect(m_adobeTransport, &AdobeBridgeTransport::clientDisconnected, this,
           []() { qDebug() << "Adobe Bridge desconectado"; });

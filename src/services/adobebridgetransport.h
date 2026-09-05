@@ -17,6 +17,8 @@ public:
 
   bool isListening() const;
 
+  void sendTextMessage(const QString &message);
+
 signals:
   void clientConnected();
   void clientDisconnected();
