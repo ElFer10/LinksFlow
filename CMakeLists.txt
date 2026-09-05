@@ -39,6 +39,15 @@ qt_add_executable(LinksFlow
     src/models/linkstablemodel.h
     src/ui/analysis/analysispage.cpp
     src/ui/analysis/analysispage.h
+    src/services/previewservice.cpp
+    src/services/previewservice.h
+    src/services/indesignbridge.h
+    src/services/mockindesignbridge.cpp
+    src/services/mockindesignbridge.h
+    src/services/indesignanalysisparser.cpp
+    src/services/indesignanalysisparser.h
+    src/services/adobeindesignbridge.cpp
+    src/services/adobeindesignbridge.h
 )
 
 target_link_libraries(LinksFlow

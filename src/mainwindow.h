@@ -1,21 +1,22 @@
 #pragma once
+#include "services/indesignbridge.h"
 #include <QMainWindow>
 
 class QStackedWidget;
 class AnalysisPage;
+class InDesignBridge;
 
-class MainWindow : public QMainWindow
-{
-    Q_OBJECT
+class MainWindow : public QMainWindow {
+  Q_OBJECT
 
 public:
-    explicit MainWindow(QWidget *parent=nullptr);
-    ~MainWindow() override = default;
+  explicit MainWindow(QWidget *parent = nullptr);
+  ~MainWindow() override = default;
 
 private:
-    void createInterface();
+  void createInterface();
 
-    QStackedWidget *m_pages = nullptr;
-    AnalysisPage *m_analysisPage = nullptr;
-
+  QStackedWidget *m_pages = nullptr;
+  AnalysisPage *m_analysisPage = nullptr;
+  InDesignBridge *m_indesignBridge = nullptr;
 };

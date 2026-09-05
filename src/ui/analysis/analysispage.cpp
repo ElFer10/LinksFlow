@@ -1,6 +1,7 @@
 #include "analysispage.h"
 
 #include "../../models/linkstablemodel.h"
+#include "../../services/previewservice.h"
 
 #include <QAbstractItemView>
 #include <QApplication>
@@ -8,6 +9,7 @@
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QLabel>
+#include <QPixmap>
 #include <QPushButton>
 #include <QSortFilterProxyModel>
 #include <QSplitter>
@@ -15,7 +17,8 @@
 #include <QVBoxLayout>
 #include <QtMath>
 
-AnalysisPage::AnalysisPage(QWidget *parent) : QWidget(parent) {
+AnalysisPage::AnalysisPage(QWidget *parent)
+    : QWidget(parent), m_previewService(new PreviewService(this)) {
   setupUi();
   setupConnections();
   clearInspector();
@@ -193,6 +196,31 @@ void AnalysisPage::setupConnections() {
           });
   connect(m_model, &LinksTableModel::processSelectionChanged, this,
           &AnalysisPage::updateProcessingState);
+
+  connect(m_previewService, &PreviewService::previewReady, this,
+          [this](int requestId, const QString &, const QImage &image) {
+            if (requestId != m_previewRequestId) {
+              return;
+            }
+
+            const QPixmap pixmap = QPixmap::fromImage(image);
+
+            m_previewLabel->setPixmap(pixmap.scaled(m_previewLabel->size(),
+                                                    Qt::KeepAspectRatio,
+                                                    Qt::SmoothTransformation));
+
+            m_previewLabel->setText({});
+          });
+
+  connect(m_previewService, &PreviewService::previewFailed, this,
+          [this](int requestId, const QString &) {
+            if (requestId != m_previewRequestId) {
+              return;
+            }
+
+            m_previewLabel->setPixmap({});
+            m_previewLabel->setText(tr("Previsualización\nno disponible"));
+          });
 }
 
 void AnalysisPage::setLinks(const QList<LinkInfo> &links) {
@@ -265,6 +293,7 @@ void AnalysisPage::updateInspector(const QModelIndex &proxyIndex) {
 }
 
 void AnalysisPage::clearInspector() {
+  ++m_previewRequestId;
   m_fileNameValue->setText(QStringLiteral("—"));
   m_pathValue->setText(QStringLiteral("—"));
   m_actualResolutionValue->setText(QStringLiteral("—"));
@@ -324,9 +353,6 @@ QString AnalysisPage::formatState(LinkProcessState state) const {
   case LinkProcessState::Ready:
     return tr("Listo");
 
-  case LinkProcessState::Excluded:
-    return tr("Excluido");
-
   case LinkProcessState::Missing:
     return tr("Archivo no encontrado");
 
@@ -372,14 +398,24 @@ QString AnalysisPage::formatFileSize(qint64 bytes) const {
 
   return tr("%1 GB").arg(gb, 0, 'f', 2);
 }
-
 void AnalysisPage::updatePreview(const LinkInfo &link) {
+  ++m_previewRequestId;
+
+  m_previewLabel->setPixmap({});
+
   if (link.state == LinkProcessState::Missing) {
-    m_previewLabel->setPixmap({});
     m_previewLabel->setText(tr("Archivo no encontrado"));
+
     return;
   }
 
-  m_previewLabel->setPixmap({});
-  m_previewLabel->setText(tr("Preview\n%1").arg(link.fileName));
+  if (link.filePath.isEmpty()) {
+    m_previewLabel->setText(tr("Previsualización\nno disponible"));
+
+    return;
+  }
+
+  m_previewLabel->setText(tr("Cargando…"));
+
+  m_previewService->requestPreview(link.filePath, m_previewRequestId, 600);
 }

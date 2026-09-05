@@ -11,6 +11,7 @@ class QPushButton;
 class QSortFilterProxyModel;
 
 class LinksTableModel;
+class PreviewService;
 
 class AnalysisPage : public QWidget {
   Q_OBJECT
@@ -66,4 +67,8 @@ private:
   QLabel *m_colorModeValue = nullptr;
   QLabel *m_iccProfileValue = nullptr;
   QLabel *m_fileSizeValue = nullptr;
+
+  PreviewService *m_previewService = nullptr;
+
+  int m_previewRequestId = 0;
 };
