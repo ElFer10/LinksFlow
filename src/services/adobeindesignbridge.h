@@ -1,19 +1,25 @@
 #pragma once
+#include <QTimer>
 
 #include "indesignbridge.h"
 
-#include <QString>
+class AdobeBridgeTransport;
 
 class AdobeInDesignBridge : public InDesignBridge {
   Q_OBJECT
 
 public:
-  explicit AdobeInDesignBridge(QObject *parent = nullptr);
+  explicit AdobeInDesignBridge(AdobeBridgeTransport *transport,
+                               QObject *parent = nullptr);
 
   void analyzeActiveDocument() override;
 
-  void setAnalysisFilePath(const QString &filePath);
-
 private:
-  QString m_analysisFilePath;
+  void handleMessage(const QString &message);
+  void handleAnalysisTimeout();
+
+  AdobeBridgeTransport *m_transport = nullptr;
+
+  QString m_pendingAnalysisId;
+  QTimer m_analysisTimeout;
 };

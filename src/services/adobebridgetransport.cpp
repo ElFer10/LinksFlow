@@ -6,6 +6,7 @@
 AdobeBridgeTransport::AdobeBridgeTransport(QObject *parent)
     : QObject(parent), m_server(QStringLiteral("LinksFlow Adobe Bridge"),
                                 QWebSocketServer::NonSecureMode, this) {
+
   connect(&m_server, &QWebSocketServer::newConnection, this, [this]() {
     if (m_client) {
       QWebSocket *extraClient = m_server.nextPendingConnection();
@@ -36,9 +37,11 @@ AdobeBridgeTransport::AdobeBridgeTransport(QObject *parent)
       m_client = nullptr;
 
       emit clientDisconnected();
+      emit connectionChanged(false);
     });
 
     emit clientConnected();
+    emit connectionChanged(true);
   });
 }
 
@@ -68,4 +71,8 @@ void AdobeBridgeTransport::sendTextMessage(const QString &message) {
   }
 
   m_client->sendTextMessage(message);
+}
+
+bool AdobeBridgeTransport::hasClient() const {
+  return m_client && m_client->state() == QAbstractSocket::ConnectedState;
 }

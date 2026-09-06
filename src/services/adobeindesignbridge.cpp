@@ -1,48 +1,116 @@
 #include "adobeindesignbridge.h"
 
+#include "adobebridgetransport.h"
 #include "indesignanalysisparser.h"
 
-#include <QFile>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QUuid>
 
-AdobeInDesignBridge::AdobeInDesignBridge(QObject *parent)
-    : InDesignBridge(parent) {}
+AdobeInDesignBridge::AdobeInDesignBridge(AdobeBridgeTransport *transport, QObject *parent)
+    : InDesignBridge(parent), m_transport(transport)
+{
+    m_analysisTimeout.setSingleShot(true);
+    m_analysisTimeout.setInterval(15000);
 
-void AdobeInDesignBridge::setAnalysisFilePath(const QString &filePath) {
-  m_analysisFilePath = filePath;
+    connect(&m_analysisTimeout, &QTimer::timeout, this, &AdobeInDesignBridge::handleAnalysisTimeout);
+
+    connect(m_transport, &AdobeBridgeTransport::textMessageReceived, this, &AdobeInDesignBridge::handleMessage);
+
+    connect(m_transport, &AdobeBridgeTransport::clientDisconnected, this, [this]() {
+        if (m_pendingAnalysisId.isEmpty())
+        {
+            return;
+        }
+
+        m_analysisTimeout.stop();
+        m_pendingAnalysisId.clear();
+
+        emit analysisFailed(QStringLiteral("Se perdió la conexión con Adobe InDesign."));
+    });
 }
 
-void AdobeInDesignBridge::analyzeActiveDocument() {
-  emit analysisStarted();
+void AdobeInDesignBridge::analyzeActiveDocument()
+{
+    if (!m_transport)
+    {
+        emit analysisFailed(QStringLiteral("El transporte de Adobe no está disponible."));
+        return;
+    }
 
-  if (m_analysisFilePath.isEmpty()) {
-    emit analysisFailed(QStringLiteral("No se ha configurado el archivo "
-                                       "de análisis de InDesign."));
+    if (!m_transport->hasClient())
+    {
+        emit analysisFailed(QStringLiteral("LinksFlow no está conectado con Adobe InDesign."));
+        return;
+    }
 
-    return;
-  }
+    if (!m_pendingAnalysisId.isEmpty())
+    {
+        emit analysisFailed(QStringLiteral("Ya hay un análisis de InDesign en curso."));
+        return;
+    }
 
-  QFile file(m_analysisFilePath);
+    m_pendingAnalysisId = QUuid::createUuid().toString(QUuid::WithoutBraces);
 
-  if (!file.open(QIODevice::ReadOnly)) {
-    emit analysisFailed(QStringLiteral("No se pudo abrir el archivo "
-                                       "de análisis de InDesign:\n%1")
-                            .arg(m_analysisFilePath));
+    QJsonObject request;
 
-    return;
-  }
+    request.insert("version", 1);
+    request.insert("id", m_pendingAnalysisId);
+    request.insert("command", "analyzeDocument");
 
-  const QByteArray json = file.readAll();
+    const QByteArray json = QJsonDocument(request).toJson(QJsonDocument::Compact);
 
-  file.close();
+    emit analysisStarted();
 
-  const InDesignAnalysisParser::Result result =
-      InDesignAnalysisParser::parse(json);
+    m_analysisTimeout.start();
 
-  if (!result.success) {
-    emit analysisFailed(result.errorMessage);
+    m_transport->sendTextMessage(QString::fromUtf8(json));
+}
 
-    return;
-  }
+void AdobeInDesignBridge::handleMessage(const QString &message)
+{
+    QJsonParseError parseError;
 
-  emit analysisCompleted(result.links);
+    const QJsonDocument document = QJsonDocument::fromJson(message.toUtf8(), &parseError);
+
+    if (parseError.error != QJsonParseError::NoError || !document.isObject())
+    {
+        return;
+    }
+
+    const QJsonObject object = document.object();
+
+    // Los eventos como bridgeReady no son respuestas a una petición.
+    const QString responseId = object.value(QStringLiteral("id")).toString();
+
+    if (responseId.isEmpty() || responseId != m_pendingAnalysisId)
+    {
+        return;
+    }
+
+    m_analysisTimeout.stop();
+    m_pendingAnalysisId.clear();
+
+    const InDesignAnalysisParser::Result result = InDesignAnalysisParser::parse(message.toUtf8());
+
+    if (!result.success)
+    {
+        emit analysisFailed(result.errorMessage);
+
+        return;
+    }
+
+    emit analysisCompleted(result.links);
+}
+
+void AdobeInDesignBridge::handleAnalysisTimeout()
+{
+    if (m_pendingAnalysisId.isEmpty())
+    {
+        return;
+    }
+
+    m_pendingAnalysisId.clear();
+
+    emit analysisFailed(QStringLiteral("Adobe InDesign no respondió a la solicitud de análisis."));
 }

@@ -21,16 +21,7 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
   m_adobeTransport = new AdobeBridgeTransport(this);
 
   connect(m_adobeTransport, &AdobeBridgeTransport::clientConnected, this,
-          [this]() {
-            qDebug() << "Adobe Bridge conectado";
-
-            m_adobeTransport->sendTextMessage(QStringLiteral(
-                R"({
-                    "version": 1,
-                    "id": "ping-1",
-                    "command": "ping"
-                })"));
-          });
+          [this]() { qDebug() << "Adobe Bridge conectado"; });
 
   connect(m_adobeTransport, &AdobeBridgeTransport::clientDisconnected, this,
           []() { qDebug() << "Adobe Bridge desconectado"; });
@@ -51,13 +42,15 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent) {
 
 void MainWindow::createInterface() {
   m_pages = new QStackedWidget(this);
-  // m_indesignBridge = new MockInDesignBridge(this);
-  auto *bridge = new AdobeInDesignBridge(this);
 
-  bridge->setAnalysisFilePath(QStringLiteral("/Users/fernando/Desktop/"
-                                             "LinksFlow-analysis-v1.json"));
+  m_adobeTransport = new AdobeBridgeTransport(this);
 
-  m_indesignBridge = bridge;
+  if (!m_adobeTransport->start(17321)) {
+    qWarning() << "No se pudo iniciar Adobe Bridge";
+  }
+
+  m_indesignBridge = new AdobeInDesignBridge(m_adobeTransport, this);
+
   auto *configurationPage = new ConfigurationPage(m_pages);
 
   m_pages->addWidget(configurationPage);
