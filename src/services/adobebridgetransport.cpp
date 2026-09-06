@@ -4,75 +4,84 @@
 #include <QWebSocket>
 
 AdobeBridgeTransport::AdobeBridgeTransport(QObject *parent)
-    : QObject(parent), m_server(QStringLiteral("LinksFlow Adobe Bridge"),
-                                QWebSocketServer::NonSecureMode, this) {
+    : QObject(parent), m_server(QStringLiteral("LinksFlow Adobe Bridge"), QWebSocketServer::NonSecureMode, this)
+{
 
-  connect(&m_server, &QWebSocketServer::newConnection, this, [this]() {
-    if (m_client) {
-      QWebSocket *extraClient = m_server.nextPendingConnection();
+    connect(&m_server, &QWebSocketServer::newConnection, this, [this]() {
+        if (m_client)
+        {
+            QWebSocket *extraClient = m_server.nextPendingConnection();
 
-      if (extraClient) {
-        extraClient->close();
-        extraClient->deleteLater();
-      }
+            if (extraClient)
+            {
+                extraClient->close();
+                extraClient->deleteLater();
+            }
 
-      return;
-    }
+            return;
+        }
 
-    m_client = m_server.nextPendingConnection();
+        m_client = m_server.nextPendingConnection();
 
-    if (!m_client) {
-      return;
-    }
+        if (!m_client)
+            return;
 
-    connect(m_client, &QWebSocket::textMessageReceived, this,
-            &AdobeBridgeTransport::textMessageReceived);
+        connect(m_client, &QWebSocket::textMessageReceived, this, &AdobeBridgeTransport::textMessageReceived);
 
-    connect(m_client, &QWebSocket::disconnected, this, [this]() {
-      if (!m_client) {
-        return;
-      }
+        connect(m_client, &QWebSocket::disconnected, this, [this]() {
+            if (m_client)
+            {
+                m_client->deleteLater();
+                m_client = nullptr;
+            }
 
-      m_client->deleteLater();
-      m_client = nullptr;
+            if (m_stopping)
+                return;
 
-      emit clientDisconnected();
-      emit connectionChanged(false);
+            emit clientDisconnected();
+            emit connectionChanged(false);
+        });
+
+        emit clientConnected();
+        emit connectionChanged(true);
     });
-
-    emit clientConnected();
-    emit connectionChanged(true);
-  });
 }
 
-bool AdobeBridgeTransport::start(quint16 port) {
-  if (m_server.isListening()) {
-    return true;
-  }
+bool AdobeBridgeTransport::start(quint16 port)
+{
+    m_stopping = false;
 
-  return m_server.listen(QHostAddress::LocalHost, port);
+    if (m_server.isListening())
+        return true;
+
+    return m_server.listen(QHostAddress::LocalHost, port);
 }
 
-void AdobeBridgeTransport::stop() {
-  if (m_client) {
-    m_client->close();
-  }
+void AdobeBridgeTransport::stop()
+{
+    m_stopping = true;
 
-  m_server.close();
+    if (m_client)
+        m_client->close();
+
+    if (m_server.isListening())
+        m_server.close();
 }
 
-bool AdobeBridgeTransport::isListening() const {
-  return m_server.isListening();
+bool AdobeBridgeTransport::isListening() const
+{
+    return m_server.isListening();
 }
 
-void AdobeBridgeTransport::sendTextMessage(const QString &message) {
-  if (!m_client) {
-    return;
-  }
+void AdobeBridgeTransport::sendTextMessage(const QString &message)
+{
+    if (!m_client)
+        return;
 
-  m_client->sendTextMessage(message);
+    m_client->sendTextMessage(message);
 }
 
-bool AdobeBridgeTransport::hasClient() const {
-  return m_client && m_client->state() == QAbstractSocket::ConnectedState;
+bool AdobeBridgeTransport::hasClient() const
+{
+    return m_client && m_client->state() == QAbstractSocket::ConnectedState;
 }

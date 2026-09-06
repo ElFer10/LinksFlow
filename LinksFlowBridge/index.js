@@ -2,20 +2,29 @@ const { app } = require("indesign");
 
 let socket = null;
 let reconnectTimer = null;
+let shuttingDown = false;
 
 const NS_PHOTOSHOP = "http://ns.adobe.com/photoshop/1.0/";
 const RECONNECT_DELAY_MS = 2000;
 
 function scheduleReconnect() {
+  if (shuttingDown) {
+    return;
+  }
+
   if (reconnectTimer) {
     return;
   }
 
-  reconnectTimer = setTimeout(() => {
-    reconnectTimer = null;
-    connectToLinksFlow();
-  },
-    RECONNECT_DELAY_MS
+  reconnectTimer = setTimeout(
+    () => {
+      reconnectTimer = null;
+
+      if (!shuttingDown) {
+        connectToLinksFlow();
+      }
+    },
+    2000
   );
 }
 
@@ -171,6 +180,19 @@ function isSupportedRasterFormat(
 }
 
 function connectToLinksFlow() {
+  if (shuttingDown) {
+    return;
+  }
+
+  if (
+    socket &&
+    (
+      socket.readyState === WebSocket.OPEN ||
+      socket.readyState === WebSocket.CONNECTING
+    )
+  ) {
+    return;
+  }
   if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
     return;
   }
@@ -197,8 +219,19 @@ function connectToLinksFlow() {
     console.log("LinksFlow Bridge desconectado");
 
     socket = null;
+    if (shuttingDown) {
+      return;
+    }
 
-    scheduleReconnect();
+    if (
+      socket &&
+      (
+        socket.readyState === WebSocket.OPEN ||
+        socket.readyState === WebSocket.CONNECTING
+      )
+    ) {
+      return;
+    }
   };
 }
 
@@ -725,6 +758,8 @@ entrypoints.setup({
           "LinksFlow Bridge panel creado"
         );
 
+        shuttingDown = false;
+
         rootNode.innerHTML = `
                     <div style="
                         padding: 12px;
@@ -766,6 +801,8 @@ entrypoints.setup({
         console.log(
           "LinksFlow Bridge panel destruido"
         );
+
+        shuttingDown = true;
 
         if (reconnectTimer) {
           clearTimeout(reconnectTimer);
