@@ -50,6 +50,8 @@ qt_add_executable(LinksFlow
     src/services/adobeindesignbridge.h
     src/services/adobebridgetransport.cpp
     src/services/adobebridgetransport.h
+     src/services/processingcontroller.cpp
+    src/services/processingcontroller.h
 )
 
 target_link_libraries(LinksFlow

@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "services/adobeindesignbridge.h"
 #include "services/indesignbridge.h"
+#include "services/processingcontroller.h"
 #include "ui/analysis/analysispage.h"
 #include "ui/configurationpage.h"
 
@@ -53,6 +54,8 @@ void MainWindow::createInterface()
     m_adobeTransport = new AdobeBridgeTransport(this);
     m_indesignConnectionLabel = new QLabel(this);
 
+    m_processingController = new ProcessingController(this);
+
     statusBar()->addPermanentWidget(m_indesignConnectionLabel);
 
     connect(m_adobeTransport, &AdobeBridgeTransport::connectionChanged, this,
@@ -63,9 +66,9 @@ void MainWindow::createInterface()
 
     m_indesignBridge = new AdobeInDesignBridge(m_adobeTransport, this);
 
-    auto *configurationPage = new ConfigurationPage(m_pages);
+    m_configurationPage = new ConfigurationPage(m_pages);
 
-    m_pages->addWidget(configurationPage);
+    m_pages->addWidget(m_configurationPage);
 
     m_analysisPage = new AnalysisPage(m_pages);
 
@@ -73,14 +76,77 @@ void MainWindow::createInterface()
 
     setCentralWidget(m_pages);
 
-    connect(configurationPage, &ConfigurationPage::exitRequested, qApp, &QApplication::quit);
+    connect(m_configurationPage, &ConfigurationPage::exitRequested, qApp, &QApplication::quit);
     connect(m_analysisPage, &AnalysisPage::backRequested, this,
-            [this, configurationPage]() { m_pages->setCurrentWidget(configurationPage); });
+            [this]() { m_pages->setCurrentWidget(m_configurationPage); });
 
     connect(m_analysisPage, &AnalysisPage::exitRequested, qApp, &QApplication::quit);
 
-    connect(configurationPage, &ConfigurationPage::analyzeDocumentRequested, this,
+    connect(m_configurationPage, &ConfigurationPage::analyzeDocumentRequested, this,
             [this]() { m_indesignBridge->analyzeActiveDocument(); });
+
+    connect(m_analysisPage, &AnalysisPage::processRequested, this, [this]() {
+        const QList<LinkInfo> links = m_analysisPage->links();
+
+        const OptimizationSettings settings = m_configurationPage->currentSettings();
+
+        const QList<ProcessingJob> jobs = m_processingController->createJobs(links, settings);
+
+        // Por ahora solo validaremos los jobs.
+        QString message;
+
+        message += tr("Se generaron %1 trabajos.\n\n").arg(jobs.size());
+
+        for (const ProcessingJob &job : jobs)
+        {
+            message += QStringLiteral("• ");
+            message += job.sourcePath;
+
+            if (job.resizeRequired)
+            {
+                message += tr("\n  - Ajustar resolución a %1 ppi").arg(job.targetResolution);
+            }
+
+            if (job.colorModeConversionRequired)
+            {
+                message += tr("\n  - Convertir modo de color");
+            }
+
+            if (job.colorProfileConversionRequired)
+            {
+                message += tr("\n  - Convertir perfil: %1").arg(job.targetIccProfile);
+            }
+
+            if (job.removeHiddenLayers)
+            {
+                message += tr("\n  - Eliminar capas ocultas");
+            }
+
+            if (job.mergeVisibleLayers)
+            {
+                message += tr("\n  - Combinar capas visibles");
+            }
+
+            if (job.flattenImage)
+            {
+                message += tr("\n  - Acoplar imagen");
+            }
+
+            if (job.alphaChannels == AlphaChannelHandling::Remove)
+            {
+                message += tr("\n  - Eliminar canales alfa");
+            }
+
+            if (job.formatConversionRequired)
+            {
+                message += tr("\n  - Convertir formato");
+            }
+
+            message += QStringLiteral("\n\n");
+        }
+
+        QMessageBox::information(this, tr("Trabajos de procesamiento"), message);
+    });
 
     connect(m_indesignBridge, &InDesignBridge::analysisCompleted, this, [this](const QList<LinkInfo> &links) {
         m_analysisPage->setLinks(links);
@@ -98,9 +164,6 @@ void MainWindow::createInterface()
 
     connect(m_adobeTransport, &AdobeBridgeTransport::textMessageReceived, this,
             [](const QString &message) { qDebug() << "Mensaje Adobe:" << message; });
-
-    if (!m_adobeTransport->start(17321))
-        qWarning() << "No se pudo iniciar Adobe Bridge";
 }
 
 void MainWindow::updateInDesignConnectionState(bool connected)
