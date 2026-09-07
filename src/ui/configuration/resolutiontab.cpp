@@ -10,10 +10,11 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QRadioButton>
-#include <QVBoxLayout>
 #include <QSignalBlocker>
+#include <QVBoxLayout>
 
-ResolutionTab::ResolutionTab(QWidget *parent) : QWidget(parent) {
+ResolutionTab::ResolutionTab(QWidget *parent) : QWidget(parent)
+{
     setupUi();
     setupConnections();
 
@@ -21,9 +22,8 @@ ResolutionTab::ResolutionTab(QWidget *parent) : QWidget(parent) {
     updateOptimizationControls();
 }
 
-
-
-void ResolutionTab::setupUi() {
+void ResolutionTab::setupUi()
+{
     auto *mainLayout = new QVBoxLayout(this);
 
     mainLayout->setContentsMargins(16, 16, 16, 16);
@@ -34,21 +34,17 @@ void ResolutionTab::setupUi() {
     // =========================================================
 
     auto *resolutionGroup = new QGroupBox(tr("Resolución efectiva deseada"), this);
-
     auto *resolutionLayout = new QVBoxLayout(resolutionGroup);
 
     resolutionLayout->setSpacing(12);
 
-    // Unidades
-
     auto *unitLayout = new QHBoxLayout;
-
     auto *unitLabel = new QLabel(tr("Unidades:"), resolutionGroup);
 
     m_resolutionUnitCombo = new QComboBox(resolutionGroup);
 
-    m_resolutionUnitCombo->addItem( tr("pixels/inch"), QVariant::fromValue(ResolutionUnit::Ppi));
-    m_resolutionUnitCombo->addItem( tr("pixels/cm"), QVariant::fromValue(ResolutionUnit::PixelsPerCm));
+    m_resolutionUnitCombo->addItem(tr("pixels/inch"), QVariant::fromValue(ResolutionUnit::Ppi));
+    m_resolutionUnitCombo->addItem(tr("pixels/cm"), QVariant::fromValue(ResolutionUnit::PixelsPerCm));
 
     unitLayout->addWidget(unitLabel);
     unitLayout->addWidget(m_resolutionUnitCombo);
@@ -56,10 +52,9 @@ void ResolutionTab::setupUi() {
 
     resolutionLayout->addLayout(unitLayout);
 
-    // ---------------------------------------------------------
+    // =========================================================
     // Resoluciones
-    // ---------------------------------------------------------
-
+    // =========================================================
 
     auto *resolutionValuesLayout = new QHBoxLayout;
     resolutionValuesLayout->setSpacing(20);
@@ -67,9 +62,7 @@ void ResolutionTab::setupUi() {
     // Color / grayscale
     auto *colorGroup = new QGroupBox(tr("Color / Escala de grises"), resolutionGroup);
     auto *colorLayout = new QHBoxLayout(colorGroup);
-
-    auto *colorResolutionLabel =
-        new QLabel(tr("Resolución deseada:"), colorGroup);
+    auto *colorResolutionLabel = new QLabel(tr("Resolución deseada:"), colorGroup);
 
     m_colorResolutionSpin = new QDoubleSpinBox(colorGroup);
 
@@ -85,12 +78,10 @@ void ResolutionTab::setupUi() {
     colorLayout->addStretch();
 
     // Monochrome
-    auto *monochromeGroup =
-        new QGroupBox(tr("Escala monocromática (Blanco y negro)"), resolutionGroup);
+    auto *monochromeGroup = new QGroupBox(tr("Escala monocromática (Blanco y negro)"), resolutionGroup);
     auto *monochromeLayout = new QHBoxLayout(monochromeGroup);
 
-    auto *monochromeResolutionLabel =
-        new QLabel(tr("Resolución deseada:"), monochromeGroup);
+    auto *monochromeResolutionLabel = new QLabel(tr("Resolución deseada:"), monochromeGroup);
 
     m_monochromeResolutionSpin = new QDoubleSpinBox(monochromeGroup);
 
@@ -118,7 +109,6 @@ void ResolutionTab::setupUi() {
     // =========================================================
 
     auto *optimizationGroup = new QGroupBox(tr("Método de optimización"), this);
-
     auto *optimizationLayout = new QVBoxLayout(optimizationGroup);
 
     optimizationLayout->setSpacing(12);
@@ -127,9 +117,8 @@ void ResolutionTab::setupUi() {
     // Scale + resample
     // ---------------------------------------------------------
 
-    m_scaleAndResampleRadio = new QRadioButton(
-        tr("Escalar imágenes y cambiar resolución a la resolución deseada"),
-        optimizationGroup);
+    m_scaleAndResampleRadio =
+        new QRadioButton(tr("Escalar imágenes y cambiar resolución a la resolución deseada"), optimizationGroup);
 
     m_scaleAndResampleRadio->setChecked(true);
 
@@ -143,8 +132,7 @@ void ResolutionTab::setupUi() {
 
     dependentLayout->setSpacing(8);
 
-    m_cropCheckBox = new QCheckBox(tr("Recortar imágenes al tamaño de InDesign"),
-                                   dependentControls);
+    m_cropCheckBox = new QCheckBox(tr("Recortar imágenes al tamaño de InDesign"), dependentControls);
 
     m_cropCheckBox->setChecked(true);
 
@@ -157,8 +145,7 @@ void ResolutionTab::setupUi() {
 
     safetyLayout->setContentsMargins(0, 0, 0, 0);
 
-    auto *safetyLabel =
-        new QLabel(tr("Área de seguridad:"), m_safetyAreaContainer);
+    auto *safetyLabel = new QLabel(tr("Área de seguridad:"), m_safetyAreaContainer);
 
     m_safetyAreaSpin = new QDoubleSpinBox(m_safetyAreaContainer);
 
@@ -184,25 +171,20 @@ void ResolutionTab::setupUi() {
     // Resample only
     // ---------------------------------------------------------
 
-    m_resampleOnlyRadio = new QRadioButton(tr("Solo cambiar la resolución "
-                                              "a la resolución deseada"),
-                                           optimizationGroup);
+    m_resampleOnlyRadio = new QRadioButton(tr("Solo cambiar la resolución a la resolución deseada"), optimizationGroup);
 
     optimizationLayout->addWidget(m_resampleOnlyRadio);
 
-    auto *explanationLabel =
-        new QLabel(tr("Las imágenes no serán escaladas ni recortadas. "
-                      "Las dimensiones de las imágenes no variarán."),
-                   optimizationGroup);
+    auto *explanationLabel = new QLabel(tr("Las imágenes no serán escaladas ni recortadas. "
+                                           "Las dimensiones de las imágenes no variarán."),
+                                        optimizationGroup);
 
     explanationLabel->setWordWrap(true);
 
     // Secondary/disabled-looking native palette text.
     QPalette secondaryPalette = explanationLabel->palette();
 
-    secondaryPalette.setColor(
-        QPalette::WindowText,
-        secondaryPalette.color(QPalette::Disabled, QPalette::WindowText));
+    secondaryPalette.setColor(QPalette::WindowText, secondaryPalette.color(QPalette::Disabled, QPalette::WindowText));
 
     explanationLabel->setPalette(secondaryPalette);
 
@@ -221,169 +203,113 @@ void ResolutionTab::setupUi() {
 
 void ResolutionTab::setupConnections()
 {
-    connect(
-        m_resolutionUnitCombo,
-        &QComboBox::currentIndexChanged,
-        this,
-        [this]()
+    connect(m_resolutionUnitCombo, &QComboBox::currentIndexChanged, this, [this]() {
+        if (m_updatingUi)
         {
-            if (m_updatingUi) {
-                return;
-            }
+            return;
+        }
 
-            const ResolutionUnit newUnit =
-                m_resolutionUnitCombo->currentData()
-                    .value<ResolutionUnit>();
+        const ResolutionUnit newUnit = m_resolutionUnitCombo->currentData().value<ResolutionUnit>();
 
-            if (newUnit != m_currentResolutionUnit) {
-                convertResolutionValues(
-                    m_currentResolutionUnit,
-                    newUnit
-                    );
+        if (newUnit != m_currentResolutionUnit)
+        {
+            convertResolutionValues(m_currentResolutionUnit, newUnit);
 
-                m_currentResolutionUnit = newUnit;
-            }
+            m_currentResolutionUnit = newUnit;
+        }
 
-            updateResolutionUnits();
+        updateResolutionUnits();
 
+        emit settingsChanged();
+    });
+
+    connect(m_colorResolutionSpin, &QDoubleSpinBox::valueChanged, this, [this]() {
+        if (!m_updatingUi)
+        {
             emit settingsChanged();
         }
-        );
+    });
 
-    connect(
-        m_colorResolutionSpin,
-        &QDoubleSpinBox::valueChanged,
-        this,
-        [this]()
+    connect(m_monochromeResolutionSpin, &QDoubleSpinBox::valueChanged, this, [this]() {
+        if (!m_updatingUi)
         {
-            if (!m_updatingUi) {
-                emit settingsChanged();
-            }
+            emit settingsChanged();
         }
-        );
+    });
 
-    connect(
-        m_monochromeResolutionSpin,
-        &QDoubleSpinBox::valueChanged,
-        this,
-        [this]()
+    connect(m_scaleAndResampleRadio, &QRadioButton::toggled, this, [this]() {
+        updateOptimizationControls();
+
+        if (!m_updatingUi)
         {
-            if (!m_updatingUi) {
-                emit settingsChanged();
-            }
+            emit settingsChanged();
         }
-        );
+    });
 
-    connect(
-        m_scaleAndResampleRadio,
-        &QRadioButton::toggled,
-        this,
-        [this]()
+    connect(m_resampleOnlyRadio, &QRadioButton::toggled, this, [this]() {
+        if (!m_updatingUi)
         {
-            updateOptimizationControls();
-
-            if (!m_updatingUi) {
-                emit settingsChanged();
-            }
+            emit settingsChanged();
         }
-        );
+    });
 
-    connect(
-        m_resampleOnlyRadio,
-        &QRadioButton::toggled,
-        this,
-        [this]()
+    connect(m_cropCheckBox, &QCheckBox::toggled, this, [this]() {
+        updateOptimizationControls();
+
+        if (!m_updatingUi)
         {
-            if (!m_updatingUi) {
-                emit settingsChanged();
-            }
+            emit settingsChanged();
         }
-        );
+    });
 
-    connect(
-        m_cropCheckBox,
-        &QCheckBox::toggled,
-        this,
-        [this]()
+    connect(m_safetyAreaSpin, &QDoubleSpinBox::valueChanged, this, [this]() {
+        if (!m_updatingUi)
         {
-            updateOptimizationControls();
-
-            if (!m_updatingUi) {
-                emit settingsChanged();
-            }
+            emit settingsChanged();
         }
-        );
+    });
 
-    connect(
-        m_safetyAreaSpin,
-        &QDoubleSpinBox::valueChanged,
-        this,
-        [this]()
+    connect(m_safetyAreaUnitCombo, &QComboBox::currentIndexChanged, this, [this]() {
+        if (!m_updatingUi)
         {
-            if (!m_updatingUi) {
-                emit settingsChanged();
-            }
+            emit settingsChanged();
         }
-        );
-
-    connect(
-        m_safetyAreaUnitCombo,
-        &QComboBox::currentIndexChanged,
-        this,
-        [this]()
-        {
-            if (!m_updatingUi) {
-                emit settingsChanged();
-            }
-        }
-        );
+    });
 }
 
 void ResolutionTab::updateResolutionUnits()
 {
-    const ResolutionUnit unit =
-        m_resolutionUnitCombo
-            ->currentData()
-            .value<ResolutionUnit>();
+    const ResolutionUnit unit = m_resolutionUnitCombo->currentData().value<ResolutionUnit>();
 
-    if (unit == ResolutionUnit::Ppi) {
-        m_colorResolutionSpin->setSuffix(
-            tr(" ppi")
-            );
+    if (unit == ResolutionUnit::Ppi)
+    {
+        m_colorResolutionSpin->setSuffix(tr(" ppi"));
 
-        m_monochromeResolutionSpin->setSuffix(
-            tr(" ppi")
-            );
+        m_monochromeResolutionSpin->setSuffix(tr(" ppi"));
     }
-    else {
-        m_colorResolutionSpin->setSuffix(
-            tr(" px/cm")
-            );
+    else
+    {
+        m_colorResolutionSpin->setSuffix(tr(" px/cm"));
 
-        m_monochromeResolutionSpin->setSuffix(
-            tr(" px/cm")
-            );
+        m_monochromeResolutionSpin->setSuffix(tr(" px/cm"));
     }
 }
 
-void ResolutionTab::updateOptimizationControls() {
+void ResolutionTab::updateOptimizationControls()
+{
     const bool scaleAndResample = m_scaleAndResampleRadio->isChecked();
 
     m_cropCheckBox->setEnabled(scaleAndResample);
 
-    const bool safetyAreaEnabled =
-        scaleAndResample && m_cropCheckBox->isChecked();
+    const bool safetyAreaEnabled = scaleAndResample && m_cropCheckBox->isChecked();
 
     m_safetyAreaContainer->setEnabled(safetyAreaEnabled);
 }
 
-
-void ResolutionTab::convertResolutionValues(
-    ResolutionUnit oldUnit,
-    ResolutionUnit newUnit
-    )
+void ResolutionTab::convertResolutionValues(ResolutionUnit oldUnit, ResolutionUnit newUnit)
 {
-    if (oldUnit == newUnit) {
+    if (oldUnit == newUnit)
+    {
         return;
     }
 
@@ -391,136 +317,93 @@ void ResolutionTab::convertResolutionValues(
 
     double factor = 1.0;
 
-    if (
-        oldUnit == ResolutionUnit::Ppi &&
-        newUnit == ResolutionUnit::PixelsPerCm
-        ) {
+    if (oldUnit == ResolutionUnit::Ppi && newUnit == ResolutionUnit::PixelsPerCm)
+    {
         factor = 1.0 / centimetersPerInch;
     }
-    else if (
-        oldUnit == ResolutionUnit::PixelsPerCm &&
-        newUnit == ResolutionUnit::Ppi
-        ) {
+    else if (oldUnit == ResolutionUnit::PixelsPerCm && newUnit == ResolutionUnit::Ppi)
+    {
         factor = centimetersPerInch;
     }
 
-    const QSignalBlocker colorBlocker(
-        m_colorResolutionSpin
-        );
+    const QSignalBlocker colorBlocker(m_colorResolutionSpin);
 
-    const QSignalBlocker monochromeBlocker(
-        m_monochromeResolutionSpin
-        );
+    const QSignalBlocker monochromeBlocker(m_monochromeResolutionSpin);
 
-    m_colorResolutionSpin->setValue(
-        m_colorResolutionSpin->value() * factor
-        );
+    m_colorResolutionSpin->setValue(m_colorResolutionSpin->value() * factor);
 
-    m_monochromeResolutionSpin->setValue(
-        m_monochromeResolutionSpin->value() * factor
+    m_monochromeResolutionSpin->setValue(m_monochromeResolutionSpin->value() * factor
 
-        );
-
+    );
 }
 
 ResolutionSettings ResolutionTab::settings() const
 {
     ResolutionSettings result;
 
-    result.unit =
-        m_resolutionUnitCombo
-            ->currentData()
-            .value<ResolutionUnit>();
+    result.unit = m_resolutionUnitCombo->currentData().value<ResolutionUnit>();
 
-    result.colorResolution =
-        m_colorResolutionSpin->value();
+    result.colorResolution = m_colorResolutionSpin->value();
 
-    result.monochromeResolution =
-        m_monochromeResolutionSpin->value();
+    result.monochromeResolution = m_monochromeResolutionSpin->value();
 
     result.optimizationMethod =
-        m_scaleAndResampleRadio->isChecked()
-            ? OptimizationMethod::ScaleAndResample
-            : OptimizationMethod::ResampleOnly;
+        m_scaleAndResampleRadio->isChecked() ? OptimizationMethod::ScaleAndResample : OptimizationMethod::ResampleOnly;
 
-    result.cropToInDesignFrame =
-        m_cropCheckBox->isChecked();
+    result.cropToInDesignFrame = m_cropCheckBox->isChecked();
 
-    result.safetyArea =
-        m_safetyAreaSpin->value();
+    result.safetyArea = m_safetyAreaSpin->value();
 
-    switch (m_safetyAreaUnitCombo->currentIndex()) {
+    switch (m_safetyAreaUnitCombo->currentIndex())
+    {
     case 1:
-        result.safetyAreaUnit =
-            ResolutionSettings::SafetyAreaUnit::Centimeters;
+        result.safetyAreaUnit = SafetyAreaUnit::Centimeters;
         break;
 
     case 2:
-        result.safetyAreaUnit =
-            ResolutionSettings::SafetyAreaUnit::Inches;
+        result.safetyAreaUnit = SafetyAreaUnit::Inches;
         break;
 
     default:
-        result.safetyAreaUnit =
-            ResolutionSettings::SafetyAreaUnit::Millimeters;
+        result.safetyAreaUnit = SafetyAreaUnit::Millimeters;
         break;
     }
 
     return result;
 }
 
-void ResolutionTab::setSettings(
-    const ResolutionSettings &settings
-    )
+void ResolutionTab::setSettings(const ResolutionSettings &settings)
 {
     m_updatingUi = true;
 
-    const int unitIndex =
-        m_resolutionUnitCombo->findData(
-            QVariant::fromValue(settings.unit)
-            );
+    const int unitIndex = m_resolutionUnitCombo->findData(QVariant::fromValue(settings.unit));
 
-    if (unitIndex >= 0) {
-        m_resolutionUnitCombo->setCurrentIndex(
-            unitIndex
-            );
+    if (unitIndex >= 0)
+    {
+        m_resolutionUnitCombo->setCurrentIndex(unitIndex);
     }
 
-    m_currentResolutionUnit =
-        settings.unit;
+    m_currentResolutionUnit = settings.unit;
 
-    m_colorResolutionSpin->setValue(
-        settings.colorResolution
-        );
+    m_colorResolutionSpin->setValue(settings.colorResolution);
 
-    m_monochromeResolutionSpin->setValue(
-        settings.monochromeResolution
-        );
+    m_monochromeResolutionSpin->setValue(settings.monochromeResolution);
 
-    m_scaleAndResampleRadio->setChecked(
-        settings.optimizationMethod ==
-        OptimizationMethod::ScaleAndResample
-        );
+    m_scaleAndResampleRadio->setChecked(settings.optimizationMethod == OptimizationMethod::ScaleAndResample);
 
-    m_resampleOnlyRadio->setChecked(
-        settings.optimizationMethod ==
-        OptimizationMethod::ResampleOnly
-        );
+    m_resampleOnlyRadio->setChecked(settings.optimizationMethod == OptimizationMethod::ResampleOnly);
 
-    m_cropCheckBox->setChecked(
-        settings.cropToInDesignFrame
-        );
+    m_cropCheckBox->setChecked(settings.cropToInDesignFrame);
 
-    m_safetyAreaSpin->setValue(
-        settings.safetyArea
-        );
+    m_safetyAreaSpin->setValue(settings.safetyArea);
 
-    switch (settings.safetyAreaUnit) {
-    case ResolutionSettings::SafetyAreaUnit::Centimeters:
+    switch (settings.safetyAreaUnit)
+    {
+    case SafetyAreaUnit::Centimeters:
         m_safetyAreaUnitCombo->setCurrentIndex(1);
         break;
 
-    case ResolutionSettings::SafetyAreaUnit::Inches:
+    case SafetyAreaUnit::Inches:
         m_safetyAreaUnitCombo->setCurrentIndex(2);
         break;
 

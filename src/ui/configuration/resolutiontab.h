@@ -2,6 +2,7 @@
 
 #include <QWidget>
 
+#include "../../domain/optimizationsettings.h"
 #include "../../domain/resolutionsettings.h"
 
 class QCheckBox;
@@ -14,28 +15,25 @@ class ResolutionTab : public QWidget
 {
     Q_OBJECT
 
-public:
+  public:
     explicit ResolutionTab(QWidget *parent = nullptr);
 
     ResolutionSettings settings() const;
     void setSettings(const ResolutionSettings &settings);
 
-signals:
+  signals:
     void settingsChanged();
 
-private:
+  private:
     void setupUi();
     void setupConnections();
 
     void updateResolutionUnits();
     void updateOptimizationControls();
 
-    void convertResolutionValues(
-        ResolutionUnit oldUnit,
-        ResolutionUnit newUnit
-        );
+    void convertResolutionValues(ResolutionUnit oldUnit, ResolutionUnit newUnit);
 
-private:
+  private:
     QComboBox *m_resolutionUnitCombo = nullptr;
 
     QDoubleSpinBox *m_colorResolutionSpin = nullptr;
@@ -50,8 +48,7 @@ private:
     QDoubleSpinBox *m_safetyAreaSpin = nullptr;
     QComboBox *m_safetyAreaUnitCombo = nullptr;
 
-    ResolutionUnit m_currentResolutionUnit =
-        ResolutionUnit::Ppi;
+    ResolutionUnit m_currentResolutionUnit = ResolutionUnit::Ppi;
 
     bool m_updatingUi = false;
 };

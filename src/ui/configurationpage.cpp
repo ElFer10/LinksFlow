@@ -12,172 +12,184 @@
 #include <QTabWidget>
 #include <QVBoxLayout>
 
-ConfigurationPage::ConfigurationPage(QWidget *parent) : QWidget(parent) {
-  m_preset.id = QStringLiteral("default");
+ConfigurationPage::ConfigurationPage(QWidget *parent) : QWidget(parent)
+{
+    m_preset.id = QStringLiteral("default");
 
-  m_preset.name = tr("Predeterminado");
+    m_preset.name = tr("Predeterminado");
 
-  m_preset.builtIn = true;
+    m_preset.builtIn = true;
 
-  setupUi();
-  setupConnections();
+    setupUi();
+    setupConnections();
 
-  updateUiFromPreset();
+    updateUiFromPreset();
 }
 
-void ConfigurationPage::setupUi() {
+void ConfigurationPage::setupUi()
+{
 
-  // Configuración de interfaz
-  int margin = 12;
+    // Configuración de interfaz
+    int margin = 12;
 
-  auto *mainLayout = new QVBoxLayout(this);
+    auto *mainLayout = new QVBoxLayout(this);
 
-  mainLayout->setContentsMargins(margin, margin, margin, margin);
-  mainLayout->setSpacing(10);
+    mainLayout->setContentsMargins(margin, margin, margin, margin);
+    mainLayout->setSpacing(10);
 
-  /* --> Barra de Presets <-- */
+    /* --> Barra de Presets <-- */
 
-  auto *presetLayout = new QHBoxLayout;
-  auto *presetLabel = new QLabel(tr("Preset:"), this);
-  auto *presetComboBox = new QComboBox(this);
+    auto *presetLayout = new QHBoxLayout;
+    auto *presetLabel = new QLabel(tr("Preset:"), this);
+    auto *presetComboBox = new QComboBox(this);
 
-  presetComboBox->addItem(tr("Predeterminado"));
-  presetComboBox->setMinimumWidth(200);
+    presetComboBox->addItem(tr("Predeterminado"));
+    presetComboBox->setMinimumWidth(200);
 
-  auto *newButton = new QPushButton(tr("Nuevo"), this);
-  auto *saveButton = new QPushButton(tr("Guardar"), this);
-  auto *saveAsButton = new QPushButton(tr("Guardar como..."), this);
-  auto *deleteButton = new QPushButton(tr("Eliminar"), this);
+    auto *newButton = new QPushButton(tr("Nuevo"), this);
+    auto *saveButton = new QPushButton(tr("Guardar"), this);
+    auto *saveAsButton = new QPushButton(tr("Guardar como..."), this);
+    auto *deleteButton = new QPushButton(tr("Eliminar"), this);
 
-  deleteButton->setEnabled(false); // No debes borrar el preset por default
+    deleteButton->setEnabled(false); // No debes borrar el preset por default
 
-  presetLayout->addWidget(presetLabel);
-  presetLayout->addWidget(presetComboBox);
+    presetLayout->addWidget(presetLabel);
+    presetLayout->addWidget(presetComboBox);
 
-  // TODO: chequear que 8 sea un valor adecuado
-  presetLayout->addSpacing(8);
+    // TODO: chequear que 8 sea un valor adecuado
+    presetLayout->addSpacing(8);
 
-  presetLayout->addWidget(newButton);
-  presetLayout->addWidget(saveButton);
-  presetLayout->addWidget(saveAsButton);
-  presetLayout->addWidget(deleteButton);
-  presetLayout->addStretch();
+    presetLayout->addWidget(newButton);
+    presetLayout->addWidget(saveButton);
+    presetLayout->addWidget(saveAsButton);
+    presetLayout->addWidget(deleteButton);
+    presetLayout->addStretch();
 
-  mainLayout->addLayout(presetLayout);
+    mainLayout->addLayout(presetLayout);
 
-  // Separador
-  auto *topSeparador = new QFrame(this);
-  topSeparador->setFrameShape(QFrame::HLine);
-  topSeparador->setFrameShadow(QFrame::Sunken);
+    // Separador
+    auto *topSeparador = new QFrame(this);
+    topSeparador->setFrameShape(QFrame::HLine);
+    topSeparador->setFrameShadow(QFrame::Sunken);
 
-  mainLayout->addWidget(topSeparador);
+    mainLayout->addWidget(topSeparador);
 
-  /*-->Área principal <-- */
+    /*-->Área principal <-- */
 
-  auto contentLayout = new QHBoxLayout;
+    auto contentLayout = new QHBoxLayout;
 
-  contentLayout->setSpacing(margin);
+    contentLayout->setSpacing(margin);
 
-  // TABS --------------------------
+    // TABS --------------------------
 
-  auto *tabs = new QTabWidget(this);
+    auto *tabs = new QTabWidget(this);
 
-  // auto *resolutionPage = new ResolutionTab(tabs);
-  m_resolutionTab = new ResolutionTab(tabs);
-  m_imageEditingTab = new ImageEditingTab(tabs);
-  m_conversionTab = new ConversionTab(tabs);
+    // auto *resolutionPage = new ResolutionTab(tabs);
+    m_resolutionTab = new ResolutionTab(tabs);
+    m_imageEditingTab = new ImageEditingTab(tabs);
+    m_conversionTab = new ConversionTab(tabs);
 
-  tabs->addTab(m_resolutionTab, tr("Resolución"));
-  tabs->addTab(m_imageEditingTab, tr("Edición de imágenes"));
-  tabs->addTab(m_conversionTab, tr("Conversión de imágenes"));
+    tabs->addTab(m_resolutionTab, tr("Resolución"));
+    tabs->addTab(m_imageEditingTab, tr("Edición de imágenes"));
+    tabs->addTab(m_conversionTab, tr("Conversión de imágenes"));
 
-  contentLayout->addWidget(tabs, 1);
+    contentLayout->addWidget(tabs, 1);
 
-  // RESUMEN ------------------------
+    // RESUMEN ------------------------
 
-  m_summaryPanel = new SummaryPanel(this);
-  contentLayout->addWidget(m_summaryPanel);
+    m_summaryPanel = new SummaryPanel(this);
+    contentLayout->addWidget(m_summaryPanel);
 
-  mainLayout->addLayout(contentLayout, 1);
+    mainLayout->addLayout(contentLayout, 1);
 
-  // ---------------------------------------------------------
-  // Separador inferior
-  // ---------------------------------------------------------
+    // ---------------------------------------------------------
+    // Separador inferior
+    // ---------------------------------------------------------
 
-  auto *bottomSeparator = new QFrame(this);
-  bottomSeparator->setFrameShape(QFrame::HLine);
-  bottomSeparator->setFrameShadow(QFrame::Sunken);
+    auto *bottomSeparator = new QFrame(this);
+    bottomSeparator->setFrameShape(QFrame::HLine);
+    bottomSeparator->setFrameShadow(QFrame::Sunken);
 
-  mainLayout->addWidget(bottomSeparator);
+    mainLayout->addWidget(bottomSeparator);
 
-  // ---------------------------------------------------------
-  // Barra de botones
-  // ---------------------------------------------------------
+    // ---------------------------------------------------------
+    // Barra de botones
+    // ---------------------------------------------------------
 
-  auto *actionLayout = new QHBoxLayout;
+    auto *actionLayout = new QHBoxLayout;
 
-  auto *helpButton = new QPushButton(tr("Ayuda"), this);
-  auto *analyzeButton = new QPushButton(tr("Analizar documento"), this);
-  auto *exitButton = new QPushButton(tr("Salir"), this);
+    auto *helpButton = new QPushButton(tr("Ayuda"), this);
+    auto *analyzeButton = new QPushButton(tr("Analizar documento"), this);
+    auto *exitButton = new QPushButton(tr("Salir"), this);
 
-  analyzeButton->setDefault(true);
-  analyzeButton->setAutoDefault(true);
+    analyzeButton->setDefault(true);
+    analyzeButton->setAutoDefault(true);
 
-  actionLayout->addWidget(helpButton);
-  actionLayout->addStretch();
-  actionLayout->addWidget(analyzeButton);
-  actionLayout->addWidget(exitButton);
+    actionLayout->addWidget(helpButton);
+    actionLayout->addStretch();
+    actionLayout->addWidget(analyzeButton);
+    actionLayout->addWidget(exitButton);
 
-  mainLayout->addLayout(actionLayout);
+    mainLayout->addLayout(actionLayout);
 
-  // ---------------------------------------------------------
-  // Signals
-  // ---------------------------------------------------------
+    // ---------------------------------------------------------
+    // Signals
+    // ---------------------------------------------------------
 
-  connect(analyzeButton, &QPushButton::clicked, this,
-          &ConfigurationPage::analyzeDocumentRequested);
+    connect(analyzeButton, &QPushButton::clicked, this, &ConfigurationPage::analyzeDocumentRequested);
 
-  connect(helpButton, &QPushButton::clicked, this,
-          &ConfigurationPage::helpRequested);
+    connect(helpButton, &QPushButton::clicked, this, &ConfigurationPage::helpRequested);
 
-  connect(exitButton, &QPushButton::clicked, this,
-          &ConfigurationPage::exitRequested);
+    connect(exitButton, &QPushButton::clicked, this, &ConfigurationPage::exitRequested);
 }
 
-void ConfigurationPage::setupConnections() {
-  connect(m_resolutionTab, &ResolutionTab::settingsChanged, this,
-          &ConfigurationPage::updatePresetFromUi);
+void ConfigurationPage::setupConnections()
+{
+    connect(m_resolutionTab, &ResolutionTab::settingsChanged, this, &ConfigurationPage::updatePresetFromUi);
 
-  connect(m_summaryPanel, &SummaryPanel::resetRequested, this,
-          &ConfigurationPage::resetPreset);
-  connect(m_imageEditingTab, &ImageEditingTab::settingsChanged, this,
-          &ConfigurationPage::updatePresetFromUi);
+    connect(m_summaryPanel, &SummaryPanel::resetRequested, this, &ConfigurationPage::resetPreset);
+    connect(m_imageEditingTab, &ImageEditingTab::settingsChanged, this, &ConfigurationPage::updatePresetFromUi);
 
-  connect(m_conversionTab, &ConversionTab::settingsChanged, this,
-          &ConfigurationPage::updatePresetFromUi);
+    connect(m_conversionTab, &ConversionTab::settingsChanged, this, &ConfigurationPage::updatePresetFromUi);
 }
 
-void ConfigurationPage::updatePresetFromUi() {
-  m_preset.resolution = m_resolutionTab->settings();
+void ConfigurationPage::updatePresetFromUi()
+{
+    m_preset.resolution = m_resolutionTab->settings();
 
-  m_preset.imageEditing = m_imageEditingTab->settings();
+    m_preset.imageEditing = m_imageEditingTab->settings();
 
-  m_preset.conversion = m_conversionTab->settings();
+    m_preset.conversion = m_conversionTab->settings();
 
-  m_summaryPanel->setPreset(m_preset);
+    m_summaryPanel->setPreset(m_preset);
 }
 
-void ConfigurationPage::updateUiFromPreset() {
-  m_resolutionTab->setSettings(m_preset.resolution);
-  m_imageEditingTab->setSettings(m_preset.imageEditing);
-  m_conversionTab->setSettings(m_preset.conversion);
-  m_summaryPanel->setPreset(m_preset);
+void ConfigurationPage::updateUiFromPreset()
+{
+    m_resolutionTab->setSettings(m_preset.resolution);
+    m_imageEditingTab->setSettings(m_preset.imageEditing);
+    m_conversionTab->setSettings(m_preset.conversion);
+    m_summaryPanel->setPreset(m_preset);
 }
 
-void ConfigurationPage::resetPreset() {
-  m_preset.resolution = ResolutionSettings{};
-  m_preset.imageEditing = ImageEditingSettings{};
-  m_preset.conversion = ConversionSettings{};
+void ConfigurationPage::resetPreset()
+{
+    m_preset.resolution = ResolutionSettings{};
+    m_preset.imageEditing = ImageEditingSettings{};
+    m_preset.conversion = ConversionSettings{};
 
-  updateUiFromPreset();
+    updateUiFromPreset();
+}
+
+OptimizationSettings ConfigurationPage::currentSettings() const
+{
+    OptimizationSettings result;
+
+    result.resolution = m_resolutionTab->settings();
+
+    result.imageEditing = m_imageEditingTab->settings();
+
+    result.conversion = m_conversionTab->settings();
+
+    return result;
 }

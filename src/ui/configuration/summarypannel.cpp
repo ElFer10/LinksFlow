@@ -3,11 +3,10 @@
 #include <QFont>
 #include <QLabel>
 #include <QPushButton>
-#include <QVBoxLayout>
 #include <QStringList>
+#include <QVBoxLayout>
 
-SummaryPanel::SummaryPanel(QWidget *parent)
-    : QFrame(parent)
+SummaryPanel::SummaryPanel(QWidget *parent) : QFrame(parent)
 {
     setupUi();
 }
@@ -28,8 +27,7 @@ void SummaryPanel::setupUi()
     // Title
     // ---------------------------------------------------------
 
-    auto *title =
-        new QLabel(tr("Resumen"), this);
+    auto *title = new QLabel(tr("Resumen"), this);
 
     QFont titleFont = title->font();
     titleFont.setBold(true);
@@ -42,8 +40,7 @@ void SummaryPanel::setupUi()
     // Preset
     // ---------------------------------------------------------
 
-    auto *presetLabel =
-        new QLabel(tr("Preset"), this);
+    auto *presetLabel = new QLabel(tr("Preset"), this);
 
     QFont sectionFont = presetLabel->font();
     sectionFont.setBold(true);
@@ -53,8 +50,7 @@ void SummaryPanel::setupUi()
     layout->addSpacing(6);
     layout->addWidget(presetLabel);
 
-    m_presetValue =
-        new QLabel(this);
+    m_presetValue = new QLabel(this);
 
     layout->addWidget(m_presetValue);
 
@@ -62,22 +58,16 @@ void SummaryPanel::setupUi()
     // Resolution
     // ---------------------------------------------------------
 
-    auto *resolutionLabel =
-        new QLabel(
-            tr("Resolución efectiva deseada"),
-            this
-        );
+    auto *resolutionLabel = new QLabel(tr("Resolución efectiva deseada"), this);
 
     resolutionLabel->setFont(sectionFont);
 
     layout->addSpacing(8);
     layout->addWidget(resolutionLabel);
 
-    m_colorResolutionValue =
-        new QLabel(this);
+    m_colorResolutionValue = new QLabel(this);
 
-    m_monochromeResolutionValue =
-        new QLabel(this);
+    m_monochromeResolutionValue = new QLabel(this);
 
     layout->addWidget(m_colorResolutionValue);
     layout->addWidget(m_monochromeResolutionValue);
@@ -86,60 +76,42 @@ void SummaryPanel::setupUi()
     // Optimization
     // ---------------------------------------------------------
 
-    auto *optimizationLabel =
-        new QLabel(
-            tr("Método de optimización"),
-            this
-        );
+    auto *optimizationLabel = new QLabel(tr("Método de optimización"), this);
 
     optimizationLabel->setFont(sectionFont);
 
     layout->addSpacing(8);
     layout->addWidget(optimizationLabel);
 
-    m_optimizationMethodValue =
-        new QLabel(this);
+    m_optimizationMethodValue = new QLabel(this);
 
     m_optimizationMethodValue->setWordWrap(true);
 
-    m_cropValue =
-        new QLabel(this);
+    m_cropValue = new QLabel(this);
 
     m_cropValue->setWordWrap(true);
 
-    m_safetyAreaValue =
-        new QLabel(this);
+    m_safetyAreaValue = new QLabel(this);
 
-    layout->addWidget(
-        m_optimizationMethodValue
-    );
+    layout->addWidget(m_optimizationMethodValue);
 
-    layout->addWidget(
-        m_cropValue
-    );
+    layout->addWidget(m_cropValue);
 
-    layout->addWidget(
-        m_safetyAreaValue
-    );
+    layout->addWidget(m_safetyAreaValue);
 
     // ---------------------------------------------------------
     // Editing
     // ---------------------------------------------------------
 
-    auto *editingLabel =
-        new QLabel(
-            tr("Edición de imágenes"),
-            this
-        );
+    auto *editingLabel = new QLabel(tr("Edición de imágenes"), this);
 
     editingLabel->setFont(sectionFont);
 
     layout->addSpacing(8);
     layout->addWidget(editingLabel);
 
-    m_editingValue =
-        new QLabel(tr("Sin configurar"), this);
-m_editingValue->setWordWrap(true);
+    m_editingValue = new QLabel(tr("Sin configurar"), this);
+    m_editingValue->setWordWrap(true);
 
     layout->addWidget(m_editingValue);
 
@@ -147,19 +119,14 @@ m_editingValue->setWordWrap(true);
     // Conversion
     // ---------------------------------------------------------
 
-    auto *conversionLabel =
-        new QLabel(
-            tr("Conversión de imágenes"),
-            this
-        );
+    auto *conversionLabel = new QLabel(tr("Conversión de imágenes"), this);
 
     conversionLabel->setFont(sectionFont);
 
     layout->addSpacing(8);
     layout->addWidget(conversionLabel);
 
-    m_conversionValue =
-        new QLabel(tr("Desactivada"), this);
+    m_conversionValue = new QLabel(tr("Desactivada"), this);
 
     layout->addWidget(m_conversionValue);
 
@@ -169,74 +136,44 @@ m_editingValue->setWordWrap(true);
     // Reset
     // ---------------------------------------------------------
 
-    m_resetButton =
-        new QPushButton(
-            tr("Resetear la configuración"),
-            this
-        );
+    m_resetButton = new QPushButton(tr("Resetear la configuración"), this);
 
     layout->addWidget(m_resetButton);
 
-    connect(
-        m_resetButton,
-        &QPushButton::clicked,
-        this,
-        &SummaryPanel::resetRequested
-    );
+    connect(m_resetButton, &QPushButton::clicked, this, &SummaryPanel::resetRequested);
 }
 
-void SummaryPanel::setPreset(
-    const Preset &preset
-)
+void SummaryPanel::setPreset(const Preset &preset)
 {
-    const ResolutionSettings &resolution =
-        preset.resolution;
+    const ResolutionSettings &resolution = preset.resolution;
 
-    const QString unit =
-        resolutionUnitText(resolution.unit);
+    const QString unit = resolutionUnitText(resolution.unit);
 
-    m_presetValue->setText(
-        preset.name
-    );
+    m_presetValue->setText(preset.name);
 
     m_colorResolutionValue->setText(
-        tr("Color / Escala de grises: %1 %2")
-            .arg(resolution.colorResolution, 0, 'f', 0)
-            .arg(unit)
-    );
+        tr("Color / Escala de grises: %1 %2").arg(resolution.colorResolution, 0, 'f', 0).arg(unit));
 
     m_monochromeResolutionValue->setText(
-        tr("Monochrome: %1 %2")
-            .arg(
-                resolution.monochromeResolution,
-                0,
-                'f',
-                0
-            )
-            .arg(unit)
-    );
+        tr("Monochrome: %1 %2").arg(resolution.monochromeResolution, 0, 'f', 0).arg(unit));
 
-    if (
-        resolution.optimizationMethod ==
-        OptimizationMethod::ScaleAndResample
-    ) {
-        m_optimizationMethodValue->setText(
-            tr("Escalar y cambiar resolución")
-        );
+    if (resolution.optimizationMethod == OptimizationMethod::ScaleAndResample)
+    {
+        m_optimizationMethodValue->setText(tr("Escalar y cambiar resolución"));
 
-        if (resolution.cropToInDesignFrame) {
-            m_cropValue->setText(
-                tr("Recortar al tamaño de InDesign")
-            );
+        if (resolution.cropToInDesignFrame)
+        {
+            m_cropValue->setText(tr("Recortar al tamaño de InDesign"));
 
             QString safetyUnit;
 
-            switch (resolution.safetyAreaUnit) {
-            case ResolutionSettings::SafetyAreaUnit::Centimeters:
+            switch (resolution.safetyAreaUnit)
+            {
+            case SafetyAreaUnit::Centimeters:
                 safetyUnit = tr("cm");
                 break;
 
-            case ResolutionSettings::SafetyAreaUnit::Inches:
+            case SafetyAreaUnit::Inches:
                 safetyUnit = tr("in");
                 break;
 
@@ -246,88 +183,66 @@ void SummaryPanel::setPreset(
             }
 
             m_safetyAreaValue->setText(
-                tr("Área de seguridad: %1 %2")
-                    .arg(
-                        resolution.safetyArea,
-                        0,
-                        'f',
-                        2
-                    )
-                    .arg(safetyUnit)
-            );
+                tr("Área de seguridad: %1 %2").arg(resolution.safetyArea, 0, 'f', 2).arg(safetyUnit));
         }
-        else {
-            m_cropValue->setText(
-                tr("Sin recorte")
-            );
+        else
+        {
+            m_cropValue->setText(tr("Sin recorte"));
 
             m_safetyAreaValue->clear();
         }
     }
-    else {
-        m_optimizationMethodValue->setText(
-            tr("Solo cambiar resolución")
-        );
+    else
+    {
+        m_optimizationMethodValue->setText(tr("Solo cambiar resolución"));
 
-        m_cropValue->setText(
-            tr("Sin escalado ni recorte")
-        );
+        m_cropValue->setText(tr("Sin escalado ni recorte"));
 
         m_safetyAreaValue->clear();
     }
-m_editingValue->setText(
-    imageEditingSummary(
-        preset.imageEditing
-    )
-);
+    m_editingValue->setText(imageEditingSummary(preset.imageEditing));
 
-if (!preset.conversion.enabled) {
-    m_conversionValue->setText(
-        tr("Desactivada")
-    );
-}
-else {
-    int enabledRules = 0;
+    if (!preset.conversion.enabled)
+    {
+        m_conversionValue->setText(tr("Desactivada"));
+    }
+    else
+    {
+        int enabledRules = 0;
 
-    for (
-        const ConversionRule &rule :
-        preset.conversion.rules
-    ) {
-        if (rule.enabled) {
-            ++enabledRules;
+        for (const ConversionRule &rule : preset.conversion.rules)
+        {
+            if (rule.enabled)
+            {
+                ++enabledRules;
+            }
+        }
+
+        if (enabledRules == 0)
+        {
+            m_conversionValue->setText(tr("Activada · Sin reglas"));
+        }
+        else
+        {
+            m_conversionValue->setText(tr("Activada (%1 reglas)").arg(enabledRules));
         }
     }
-
-    if (enabledRules == 0) {
-        m_conversionValue->setText(
-            tr("Activada · Sin reglas")
-        );
-    }
-    else {
-        m_conversionValue->setText(
-            tr("Activada (%1 reglas)")
-                .arg(enabledRules)
-        );
-    }
-}
 }
 
-QString SummaryPanel::resolutionUnitText(
-    ResolutionUnit unit
-) const
+QString SummaryPanel::resolutionUnitText(ResolutionUnit unit) const
 {
-    if (unit == ResolutionUnit::Ppi) {
+    if (unit == ResolutionUnit::Ppi)
+    {
         return tr("ppi");
     }
 
     return tr("px/cm");
 }
 
-QString SummaryPanel::colorModeText(
-    ColorMode mode
-) const
+QString SummaryPanel::colorModeText(ColorMode mode) const
 {
-    switch (mode) {
+    switch (mode)
+    {
     case ColorMode::CMYK:
         return tr("CMYK");
 
@@ -339,56 +254,49 @@ QString SummaryPanel::colorModeText(
     }
 }
 
-QString SummaryPanel::imageEditingSummary(
-    const ImageEditingSettings &settings
-) const
+QString SummaryPanel::imageEditingSummary(const ImageEditingSettings &settings) const
 {
     QStringList lines;
 
-    if (settings.changeColorMode) {
+    if (settings.changeColorMode)
+    {
         lines << tr("Modo: %1 → %2")
-                     .arg(
-                         colorModeText(
-                             settings.sourceColorMode
-                         ),
-                         colorModeText(
-                             settings.destinationColorMode
-                         )
-                     );
+                     .arg(colorModeText(settings.sourceColorMode), colorModeText(settings.destinationColorMode));
     }
 
-    if (settings.changeColorProfile) {
-        lines << tr("Perfil ICC: %1")
-                     .arg(settings.iccProfile);
+    if (settings.changeColorProfile)
+    {
+        lines << tr("Perfil ICC: %1").arg(settings.iccProfile);
     }
 
-    if (settings.removeHiddenLayers) {
+    if (settings.removeHiddenLayers)
+    {
         lines << tr("Eliminar capas ocultas");
     }
 
-    if (settings.mergeVisibleLayers) {
+    if (settings.mergeVisibleLayers)
+    {
         lines << tr("Combinar capas visibles");
     }
 
-    if (settings.flattenImage) {
+    if (settings.flattenImage)
+    {
         lines << tr("Acoplar imagen");
     }
 
-    if (
-        settings.alphaChannels ==
-        AlphaChannelHandling::Remove
-    ) {
+    if (settings.alphaChannels == AlphaChannelHandling::Remove)
+    {
         lines << tr("Eliminar canales alfa");
     }
-    else {
+    else
+    {
         lines << tr("Conservar canales alfa");
     }
 
-    if (lines.isEmpty()) {
+    if (lines.isEmpty())
+    {
         return tr("Sin cambios");
     }
 
-    return lines.join(
-        QStringLiteral("\n")
-    );
+    return lines.join(QStringLiteral("\n"));
 }

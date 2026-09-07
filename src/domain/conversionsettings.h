@@ -19,8 +19,7 @@ struct ConversionRule
 
     bool enabled = false;
 
-    ImageFormat destinationFormat =
-        ImageFormat::TIFF;
+    ImageFormat destinationFormat = ImageFormat::TIFF;
 
     QVariantMap options;
 };
