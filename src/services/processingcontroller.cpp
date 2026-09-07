@@ -1,5 +1,7 @@
 #include "processingcontroller.h"
 
+#include <QFileInfo>
+#include <QTimer>
 #include <QUuid>
 
 namespace
@@ -222,4 +224,148 @@ QList<ProcessingJob> ProcessingController::createJobs(const QList<LinkInfo> &lin
     }
 
     return jobs;
+}
+
+void ProcessingController::processJobs(const QList<ProcessingJob> &jobs)
+{
+    if (jobs.isEmpty())
+    {
+        emit processingCompleted();
+        return;
+    }
+
+    m_jobs = jobs;
+    m_currentJobIndex = -1;
+    m_cancelRequested = false;
+
+    emit processingStarted(m_jobs.size());
+
+    processNextJob();
+}
+
+void ProcessingController::cancelProcessing()
+{
+    m_cancelRequested = true;
+}
+
+void ProcessingController::processNextJob()
+{
+    if (m_cancelRequested)
+    {
+
+        // Marcamos como omitidos los trabajos
+        // que todavía no comenzaron.
+
+        for (int index = m_currentJobIndex + 1; index < m_jobs.size(); ++index)
+        {
+            ProcessingJob &job = m_jobs[index];
+
+            job.state = ProcessingJobState::Skipped;
+
+            job.statusMessage = tr("Cancelado por el usuario");
+
+            ProcessingResult result;
+
+            result.jobId = job.id;
+
+            result.state = ProcessingJobState::Skipped;
+
+            result.sourcePath = job.sourcePath;
+
+            result.outputPath = job.outputPath;
+
+            result.message = job.statusMessage;
+
+            const QFileInfo fileInfo(job.sourcePath);
+
+            if (fileInfo.exists() && fileInfo.isFile())
+            {
+                result.originalSizeBytes = fileInfo.size();
+
+                result.processedSizeBytes = fileInfo.size();
+            }
+
+            emit jobCompleted(result);
+        }
+
+        emit processingCompleted();
+        return;
+    }
+
+    ++m_currentJobIndex;
+
+    if (m_currentJobIndex >= m_jobs.size())
+    {
+        emit processingCompleted();
+        return;
+    }
+
+    ProcessingJob &job = m_jobs[m_currentJobIndex];
+
+    job.state = ProcessingJobState::Processing;
+
+    emit jobStarted(job);
+
+    //
+    // Simulación temporal.
+    //
+    // Más adelante este bloque será reemplazado
+    // por PhotoshopBridge.
+    //
+
+    QTimer::singleShot(800, this, [this]() {
+        if (m_currentJobIndex < 0 || m_currentJobIndex >= m_jobs.size())
+        {
+            return;
+        }
+
+        ProcessingJob &job = m_jobs[m_currentJobIndex];
+
+        ProcessingResult result;
+
+        result.jobId = job.id;
+
+        result.sourcePath = job.sourcePath;
+
+        result.outputPath = job.outputPath;
+
+        const QFileInfo fileInfo(job.sourcePath);
+
+        if (fileInfo.exists() && fileInfo.isFile())
+        {
+            result.originalSizeBytes = fileInfo.size();
+
+            //
+            // Simulamos una reducción del 30 %.
+            //
+            result.processedSizeBytes = static_cast<qint64>(fileInfo.size() * 0.70);
+        }
+
+        if (m_cancelRequested)
+        {
+
+            job.state = ProcessingJobState::Skipped;
+
+            job.statusMessage = tr("Cancelado por el usuario");
+
+            result.state = ProcessingJobState::Skipped;
+
+            result.message = job.statusMessage;
+        }
+        else
+        {
+
+            job.state = ProcessingJobState::Completed;
+
+            job.statusMessage = tr("Procesamiento simulado");
+
+            result.state = ProcessingJobState::Completed;
+
+            result.message = job.statusMessage;
+        }
+
+        emit jobCompleted(result);
+
+        processNextJob();
+    });
 }

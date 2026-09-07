@@ -1,11 +1,12 @@
 #include "mainwindow.h"
+#include "services/adobebridgetransport.h"
 #include "services/adobeindesignbridge.h"
 #include "services/indesignbridge.h"
 #include "services/processingcontroller.h"
 #include "ui/analysis/analysispage.h"
 #include "ui/configurationpage.h"
+#include "ui/processing/processingdialog.h"
 
-#include "services/adobebridgetransport.h"
 #include <QApplication>
 #include <QDebug>
 #include <QLabel>
@@ -92,60 +93,27 @@ void MainWindow::createInterface()
 
         const QList<ProcessingJob> jobs = m_processingController->createJobs(links, settings);
 
-        // Por ahora solo validaremos los jobs.
-        QString message;
+        // DIALOGO MODAL
 
-        message += tr("Se generaron %1 trabajos.\n\n").arg(jobs.size());
+        auto *dialog = new ProcessingDialog(this);
 
-        for (const ProcessingJob &job : jobs)
-        {
-            message += QStringLiteral("• ");
-            message += job.sourcePath;
+        dialog->setAttribute(Qt::WA_DeleteOnClose);
 
-            if (job.resizeRequired)
-            {
-                message += tr("\n  - Ajustar resolución a %1 ppi").arg(job.targetResolution);
-            }
+        dialog->setJobs(jobs);
 
-            if (job.colorModeConversionRequired)
-            {
-                message += tr("\n  - Convertir modo de color");
-            }
+        connect(m_processingController, &ProcessingController::jobStarted, dialog, &ProcessingDialog::jobStarted);
 
-            if (job.colorProfileConversionRequired)
-            {
-                message += tr("\n  - Convertir perfil: %1").arg(job.targetIccProfile);
-            }
+        connect(m_processingController, &ProcessingController::jobCompleted, dialog, &ProcessingDialog::jobCompleted);
 
-            if (job.removeHiddenLayers)
-            {
-                message += tr("\n  - Eliminar capas ocultas");
-            }
+        connect(m_processingController, &ProcessingController::processingCompleted, dialog,
+                &ProcessingDialog::processingCompleted);
 
-            if (job.mergeVisibleLayers)
-            {
-                message += tr("\n  - Combinar capas visibles");
-            }
+        connect(dialog, &ProcessingDialog::cancelRequested, m_processingController,
+                &ProcessingController::cancelProcessing);
 
-            if (job.flattenImage)
-            {
-                message += tr("\n  - Acoplar imagen");
-            }
+        dialog->show();
 
-            if (job.alphaChannels == AlphaChannelHandling::Remove)
-            {
-                message += tr("\n  - Eliminar canales alfa");
-            }
-
-            if (job.formatConversionRequired)
-            {
-                message += tr("\n  - Convertir formato");
-            }
-
-            message += QStringLiteral("\n\n");
-        }
-
-        QMessageBox::information(this, tr("Trabajos de procesamiento"), message);
+        m_processingController->processJobs(jobs);
     });
 
     connect(m_indesignBridge, &InDesignBridge::analysisCompleted, this, [this](const QList<LinkInfo> &links) {

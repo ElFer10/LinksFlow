@@ -15,6 +15,8 @@ class ProcessingController : public QObject
   public:
     explicit ProcessingController(QObject *parent = nullptr);
     QList<ProcessingJob> createJobs(const QList<LinkInfo> &links, const OptimizationSettings &settings) const;
+    void processJobs(const QList<ProcessingJob> &jobs);
+    void cancelProcessing();
 
   signals:
     void processingStarted(int totalJobs);
@@ -22,4 +24,11 @@ class ProcessingController : public QObject
     void jobCompleted(const ProcessingResult &result);
     void processingCompleted();
     void processingFailed(const QString &message);
+
+  private:
+    void processNextJob();
+
+    QList<ProcessingJob> m_jobs;
+    int m_currentJobIndex = -1;
+    bool m_cancelRequested = false;
 };
