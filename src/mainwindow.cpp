@@ -220,6 +220,18 @@ void MainWindow::createInterface()
     connect(m_indesignBridge, &InDesignBridge::analysisCompleted, this, [this](const QList<LinkInfo> &links) {
         m_analysisPage->setLinks(links);
 
+        /////// Prueba temporal
+
+        for (const LinkInfo &link : links)
+        {
+            if (link.state == LinkProcessState::Ready && !link.filePath.isEmpty())
+            {
+                m_photoshopBridge->inspectImage(link.filePath);
+
+                break;
+            }
+        }
+
         m_pages->setCurrentWidget(m_analysisPage);
     });
 
@@ -307,6 +319,15 @@ void MainWindow::createInterface()
 
     connect(m_photoshopBridge, &AdobePhotoshopBridge::pingFailed, this,
             [](const QString &message) { qWarning() << "Photoshop ping error:" << message; });
+
+    connect(m_photoshopBridge, &AdobePhotoshopBridge::imageInspected, this, [](const PhotoshopImageInfo &info) {
+        qDebug() << "Photoshop inspect:" << info.name << info.width << "x" << info.height << "@" << info.resolution
+                 << "ppi"
+                 << "mode:" << info.mode << "layers:" << info.layerCount;
+    });
+
+    connect(m_photoshopBridge, &AdobePhotoshopBridge::imageInspectionFailed, this,
+            [](const QString &message) { qWarning() << "Photoshop inspect error:" << message; });
 }
 
 void MainWindow::updateInDesignConnectionState(bool connected)

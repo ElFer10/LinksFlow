@@ -1,16 +1,13 @@
-
 {
   "manifestVersion": 5,
   "id": "com.linksflow.photoshop.bridge.dev",
   "name": "LinksFlow Photoshop Bridge",
   "version": "0.1.0",
   "main": "index.js",
-
   "host": {
     "app": "PS",
     "minVersion": "23.3.0"
   },
-
   "entrypoints": [
     {
       "type": "panel",
@@ -34,10 +31,10 @@
       }
     }
   ],
-
   "requiredPermissions": {
     "network": {
       "domains": "all"
-    }
+    },
+    "localFileSystem": "fullAccess"
   }
 }

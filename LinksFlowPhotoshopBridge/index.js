@@ -1,4 +1,6 @@
-const { entrypoints } = require("uxp");
+const { entrypoints, storage } = require("uxp");
+const { app, constants, core } = require("photoshop");
+const fs = storage.localFileSystem;
 
 let socket = null;
 let reconnectTimer = null;
@@ -166,13 +168,148 @@ function sendJson(value) {
   );
 }
 
+function fileUrlFromNativePath(path) {
+  if (!path) {
+    return "";
+  }
 
-function handleMessage(message) {
+  //
+  // macOS:
+  // /Users/foo/image.psd
+  //        ↓
+  // file:/Users/foo/image.psd
+  //
+  // Windows:
+  // C:\Users\foo\image.psd
+  //        ↓
+  // file:/C:/Users/foo/image.psd
+  //
+
+  let normalized = String(path).replace(/\\/g, "/");
+
+  if (/^[A-Za-z]:\//.test(normalized)) {
+    return ("file:/" + normalized);
+  }
+
+  if (
+    normalized.startsWith("/")
+  ) {
+    return (
+      "file:" +
+      normalized
+    );
+  }
+
+  return (
+    "file:/" +
+    normalized
+  );
+}
+
+
+function documentModeToString(mode) {
+  if (
+    mode === null ||
+    mode === undefined
+  ) {
+    return "";
+  }
+
+  return String(mode);
+}
+
+async function inspectImage(path) {
+  if (!path) {
+    throw new Error(
+      "No se recibió la ruta del archivo."
+    );
+  }
+
+  const fileUrl =
+    fileUrlFromNativePath(
+      path
+    );
+
+  const entry =
+    await fs.getEntryWithUrl(
+      fileUrl
+    );
+
+  if (!entry || !entry.isFile) {
+    throw new Error(
+      "La ruta no corresponde a un archivo."
+    );
+  }
+
+  let result = null;
+
+  await core.executeAsModal(
+    async () => {
+      let document = null;
+
+      try {
+        document =
+          await app.open(entry);
+
+        result = {
+          name:
+            document.name || "",
+
+          path:
+            path,
+
+          width:
+            Number(
+              document.width
+            ) || 0,
+
+          height:
+            Number(
+              document.height
+            ) || 0,
+
+          resolution:
+            Number(
+              document.resolution
+            ) || 0,
+
+          mode:
+            documentModeToString(
+              document.mode
+            ),
+
+          layerCount:
+            document.layers
+              ? document.layers.length
+              : 0
+        };
+
+      } finally {
+
+        if (document) {
+          await document.close(
+            constants.SaveOptions
+              .DONOTSAVECHANGES
+          );
+        }
+      }
+    },
+    {
+      commandName:
+        "LinksFlow: inspect image"
+    }
+  );
+
+  return result;
+}
+
+async function handleMessage(message) {
   let request;
 
   try {
     request =
       JSON.parse(message);
+
   } catch (error) {
 
     sendJson({
@@ -202,8 +339,46 @@ function handleMessage(message) {
   }
 
   //
-  // Todavía no hay comandos
-  // de procesamiento.
+  // Inspect image
+  //
+
+  if (
+    request.command ===
+    "inspectImage"
+  ) {
+    try {
+
+      const result =
+        await inspectImage(
+          request.path || ""
+        );
+
+      sendJson({
+        version: 1,
+        id: request.id || "",
+        success: true,
+        result
+      });
+
+    } catch (error) {
+
+      sendJson({
+        version: 1,
+        id: request.id || "",
+        success: false,
+        error:
+          error &&
+            error.message
+            ? error.message
+            : String(error)
+      });
+    }
+
+    return;
+  }
+
+  //
+  // Comando desconocido
   //
 
   sendJson({
@@ -217,7 +392,6 @@ function handleMessage(message) {
       )
   });
 }
-
 
 // ============================================================
 // UI
