@@ -1,0 +1,43 @@
+
+{
+  "manifestVersion": 5,
+  "id": "com.linksflow.photoshop.bridge.dev",
+  "name": "LinksFlow Photoshop Bridge",
+  "version": "0.1.0",
+  "main": "index.js",
+
+  "host": {
+    "app": "PS",
+    "minVersion": "23.3.0"
+  },
+
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "linksFlowPhotoshopBridgePanel",
+      "label": "LinksFlow Bridge",
+      "minimumSize": {
+        "width": 180,
+        "height": 80
+      },
+      "maximumSize": {
+        "width": 400,
+        "height": 300
+      },
+      "preferredDockedSize": {
+        "width": 220,
+        "height": 100
+      },
+      "preferredFloatingSize": {
+        "width": 260,
+        "height": 120
+      }
+    }
+  ],
+
+  "requiredPermissions": {
+    "network": {
+      "domains": "all"
+    }
+  }
+}

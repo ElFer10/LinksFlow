@@ -5,6 +5,13 @@
 
 class QWebSocket;
 
+enum class AdobeHost
+{
+    Unknown,
+    InDesign,
+    Photoshop
+};
+
 class AdobeBridgeTransport : public QObject
 {
     Q_OBJECT
@@ -14,18 +21,36 @@ class AdobeBridgeTransport : public QObject
 
     bool start(quint16 port = 17321);
     void stop();
+
     bool isListening() const;
-    void sendTextMessage(const QString &message);
-    bool hasClient() const;
+
+    bool hasClient(AdobeHost host) const;
+
+    void sendTextMessage(AdobeHost host, const QString &message);
 
   signals:
-    void clientConnected();
-    void clientDisconnected();
-    void textMessageReceived(const QString &message);
-    void connectionChanged(bool connected);
+    void clientConnected(AdobeHost host);
+
+    void clientDisconnected(AdobeHost host);
+
+    void textMessageReceived(AdobeHost host, const QString &message);
+
+    void connectionChanged(AdobeHost host, bool connected);
+
+  private:
+    void handleNewConnection();
+
+    void handleInitialMessage(QWebSocket *socket, const QString &message);
+
+    AdobeHost hostFromString(const QString &value) const;
+
+    QWebSocket *socketForHost(AdobeHost host) const;
 
   private:
     QWebSocketServer m_server;
-    QWebSocket *m_client = nullptr;
+
+    QWebSocket *m_indesignClient = nullptr;
+    QWebSocket *m_photoshopClient = nullptr;
+
     bool m_stopping = false;
 };

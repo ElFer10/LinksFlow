@@ -56,6 +56,8 @@ qt_add_executable(LinksFlow
     src/models/processingtablemodel.h
     src/ui/processing/processingdialog.cpp
     src/ui/processing/processingdialog.h
+    src/services/adobephotoshopbridge.cpp
+    src/services/adobephotoshopbridge.h
 )
 
 target_link_libraries(LinksFlow

@@ -10,6 +10,7 @@ class InDesignBridge;
 class AdobeBridgeTransport;
 class ProcessingController;
 class ConfigurationPage;
+class AdobePhotoshopBridge;
 
 class MainWindow : public QMainWindow
 {
@@ -27,7 +28,10 @@ class MainWindow : public QMainWindow
     ProcessingController *m_processingController = nullptr;
     ConfigurationPage *m_configurationPage = nullptr;
     QLabel *m_indesignConnectionLabel = nullptr;
+    QLabel *m_photoshopConnectionLabel = nullptr;
+    AdobePhotoshopBridge *m_photoshopBridge = nullptr;
 
     void createInterface();
     void updateInDesignConnectionState(bool connected);
+    void updatePhotoshopConnectionState(bool connected);
 };

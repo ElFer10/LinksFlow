@@ -1,11 +1,19 @@
 const { app } = require("indesign");
+const { entrypoints } = require("uxp");
 
 let socket = null;
 let reconnectTimer = null;
 let shuttingDown = false;
 
-const NS_PHOTOSHOP = "http://ns.adobe.com/photoshop/1.0/";
+const NS_PHOTOSHOP =
+  "http://ns.adobe.com/photoshop/1.0/";
+
 const RECONNECT_DELAY_MS = 2000;
+
+
+// ============================================================
+// Conexión con LinksFlow
+// ============================================================
 
 function scheduleReconnect() {
   if (shuttingDown) {
@@ -24,11 +32,137 @@ function scheduleReconnect() {
         connectToLinksFlow();
       }
     },
-    2000
+    RECONNECT_DELAY_MS
   );
 }
 
-function safeValue(fn, fallback = null) {
+
+function connectToLinksFlow() {
+  if (shuttingDown) {
+    return;
+  }
+
+  if (
+    socket &&
+    (
+      socket.readyState === WebSocket.OPEN ||
+      socket.readyState === WebSocket.CONNECTING
+    )
+  ) {
+    return;
+  }
+
+  setStatus("Conectando...");
+
+  socket =
+    new WebSocket(
+      "ws://127.0.0.1:17321"
+    );
+
+  socket.onopen = () => {
+    console.log(
+      "LinksFlow Bridge: WebSocket abierto"
+    );
+
+    //
+    // La conexión WebSocket existe,
+    // pero LinksFlow todavía debe identificar
+    // este cliente como InDesign.
+    //
+    setStatus(
+      "Identificando InDesign..."
+    );
+
+    sendJson({
+      version: 1,
+      event: "bridgeReady",
+      host: "indesign"
+    });
+  };
+
+
+  socket.onmessage = (event) => {
+    let message = null;
+
+    try {
+      message =
+        JSON.parse(event.data);
+    } catch (error) {
+      //
+      // Si no es JSON válido,
+      // dejamos que handleMessage()
+      // gestione el error.
+      //
+    }
+
+    //
+    // Confirmación del handshake.
+    //
+
+    if (
+      message &&
+      message.event ===
+      "bridgeRegistered" &&
+      message.host === "indesign"
+    ) {
+      console.log(
+        "LinksFlow Bridge: InDesign registrado"
+      );
+
+      setStatus(
+        "Conectado a LinksFlow"
+      );
+
+      return;
+    }
+
+    handleMessage(
+      event.data
+    );
+  };
+
+
+  socket.onerror = (event) => {
+    console.log(
+      "LinksFlow Bridge error",
+      event
+    );
+
+    //
+    // No reconectamos aquí.
+    // onclose se encargará.
+    //
+  };
+
+
+  socket.onclose = () => {
+    console.log(
+      "LinksFlow Bridge desconectado"
+    );
+
+    socket = null;
+
+    setStatus(
+      "Esperando LinksFlow..."
+    );
+
+    if (shuttingDown) {
+      return;
+    }
+
+    scheduleReconnect();
+  };
+}
+
+
+// ============================================================
+// Utilidades
+// ============================================================
+
+function safeValue(
+  fn,
+  fallback = null
+) {
   try {
     const value = fn();
 
@@ -44,9 +178,12 @@ function safeValue(fn, fallback = null) {
 
 
 function arrayValue(value) {
-  if (value === null || value === undefined)
+  if (
+    value === null ||
+    value === undefined
+  ) {
     return null;
-
+  }
 
   try {
     return Array.from(value);
@@ -56,17 +193,22 @@ function arrayValue(value) {
 }
 
 
-function getXmpProperty(metadata, namespace, property) {
+function getXmpProperty(
+  metadata,
+  namespace,
+  property
+) {
   if (!metadata) {
     return "";
   }
 
   const value =
     safeValue(
-      () => metadata.getProperty(
-        namespace,
-        property
-      ),
+      () =>
+        metadata.getProperty(
+          namespace,
+          property
+        ),
       ""
     );
 
@@ -81,7 +223,9 @@ function getXmpProperty(metadata, namespace, property) {
 }
 
 
-function extensionFromFileName(fileName) {
+function extensionFromFileName(
+  fileName
+) {
   if (!fileName) {
     return "";
   }
@@ -93,9 +237,15 @@ function extensionFromFileName(fileName) {
     return "";
   }
 
-  return fileName.substring(index + 1).toLowerCase();
+  return fileName
+    .substring(index + 1)
+    .toLowerCase();
 }
 
+
+// ============================================================
+// Tipo de archivo
+// ============================================================
 
 function normalizeFileType(
   fileName,
@@ -103,7 +253,9 @@ function normalizeFileType(
   parent
 ) {
   const extension =
-    extensionFromFileName(fileName);
+    extensionFromFileName(
+      fileName
+    );
 
   switch (extension) {
     case "psd":
@@ -135,7 +287,10 @@ function normalizeFileType(
   }
 
   const imageTypeName =
-    safeValue(() => parent.imageTypeName, "");
+    safeValue(
+      () => parent.imageTypeName,
+      ""
+    );
 
   if (imageTypeName === "TIFF") {
     return "TIFF";
@@ -149,7 +304,9 @@ function normalizeFileType(
     return "PNG";
   }
 
-  if (imageTypeName === "Photoshop") {
+  if (
+    imageTypeName === "Photoshop"
+  ) {
     return "PSD";
   }
 
@@ -179,68 +336,20 @@ function isSupportedRasterFormat(
   );
 }
 
-function connectToLinksFlow() {
-  if (shuttingDown) {
-    return;
-  }
 
-  if (
-    socket &&
-    (
-      socket.readyState === WebSocket.OPEN ||
-      socket.readyState === WebSocket.CONNECTING
-    )
-  ) {
-    return;
-  }
-  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
-    return;
-  }
-
-  setStatus("Conectando...");
-
-  socket = new WebSocket("ws://127.0.0.1:17321");
-
-  socket.onopen = () => {
-    console.log("LinksFlow Bridge conectado");
-
-    sendJson({ version: 1, event: "bridgeReady" });
-  };
-
-  socket.onmessage = (event) => {
-    handleMessage(event.data);
-  };
-
-  socket.onerror = () => {
-    // onclose gestionará la reconexión
-  };
-
-  socket.onclose = () => {
-    console.log("LinksFlow Bridge desconectado");
-
-    socket = null;
-    if (shuttingDown) {
-      return;
-    }
-
-    if (
-      socket &&
-      (
-        socket.readyState === WebSocket.OPEN ||
-        socket.readyState === WebSocket.CONNECTING
-      )
-    ) {
-      return;
-    }
-  };
-}
+// ============================================================
+// Estado del enlace
+// ============================================================
 
 function determineState(
   linkStatus,
   fileType,
   parent
 ) {
-  if (linkStatus === "LINK_MISSING") {
+  if (
+    linkStatus ===
+    "LINK_MISSING"
+  ) {
     return {
       state: "missing",
       message:
@@ -248,7 +357,10 @@ function determineState(
     };
   }
 
-  if (linkStatus === "LINK_INACCESSIBLE") {
+  if (
+    linkStatus ===
+    "LINK_INACCESSIBLE"
+  ) {
     return {
       state: "error",
       message:
@@ -256,7 +368,10 @@ function determineState(
     };
   }
 
-  if (linkStatus === "LINK_EMBEDDED") {
+  if (
+    linkStatus ===
+    "LINK_EMBEDDED"
+  ) {
     return {
       state: "unsupported",
       message:
@@ -264,26 +379,35 @@ function determineState(
     };
   }
 
-  if (!isSupportedRasterFormat(fileType)) {
+  if (
+    !isSupportedRasterFormat(
+      fileType
+    )
+  ) {
     return {
       state: "unsupported",
       message:
         fileType
-          ? "Formato no compatible: " + fileType
+          ? "Formato no compatible: " +
+          fileType
           : "Formato no compatible."
     };
   }
 
   const constructorName =
     safeValue(
-      () => parent.constructorName,
+      () =>
+        parent.constructorName,
       safeValue(
-        () => parent.constructor.name,
+        () =>
+          parent.constructor.name,
         ""
       )
     );
 
-  if (constructorName !== "Image") {
+  if (
+    constructorName !== "Image"
+  ) {
     return {
       state: "unsupported",
       message:
@@ -297,6 +421,10 @@ function determineState(
   };
 }
 
+
+// ============================================================
+// Perfil ICC
+// ============================================================
 
 function getIccProfile(
   link,
@@ -342,13 +470,19 @@ function getIccProfile(
     return "";
   }
 
-  if (profile === "Embedded") {
+  if (
+    profile === "Embedded"
+  ) {
     return "Embedded";
   }
 
   return profile;
 }
 
+
+// ============================================================
+// Resolución
+// ============================================================
 
 function resolutionObject(value) {
   const array =
@@ -367,11 +501,16 @@ function resolutionObject(value) {
   return {
     x:
       Number(array[0]) || 0,
+
     y:
       Number(array[1]) || 0
   };
 }
 
+
+// ============================================================
+// Análisis de vínculos
+// ============================================================
 
 function analyzeLink(link) {
   const parent =
@@ -423,7 +562,10 @@ function analyzeLink(link) {
   const page =
     parentOfParent
       ? safeValue(
-        () => parentOfParent.parentPage.name,
+        () =>
+          parentOfParent
+            .parentPage
+            .name,
         ""
       )
       : "";
@@ -445,7 +587,8 @@ function analyzeLink(link) {
     parent
       ? resolutionObject(
         safeValue(
-          () => parent.effectivePpi,
+          () =>
+            parent.effectivePpi,
           null
         )
       )
@@ -457,7 +600,8 @@ function analyzeLink(link) {
   let colorMode =
     parent
       ? safeValue(
-        () => String(parent.space),
+        () =>
+          String(parent.space),
         ""
       )
       : "";
@@ -515,7 +659,9 @@ function analyzeLink(link) {
         parent
           ? Number(
             safeValue(
-              () => parent.horizontalScale,
+              () =>
+                parent
+                  .horizontalScale,
               100
             )
           )
@@ -525,7 +671,9 @@ function analyzeLink(link) {
         parent
           ? Number(
             safeValue(
-              () => parent.verticalScale,
+              () =>
+                parent
+                  .verticalScale,
               100
             )
           )
@@ -536,7 +684,9 @@ function analyzeLink(link) {
       parent
         ? Number(
           safeValue(
-            () => parent.rotationAngle,
+            () =>
+              parent
+                .rotationAngle,
             0
           )
         )
@@ -556,8 +706,14 @@ function analyzeLink(link) {
 }
 
 
+// ============================================================
+// Análisis del documento
+// ============================================================
+
 function analyzeDocument() {
-  if (app.documents.length === 0) {
+  if (
+    app.documents.length === 0
+  ) {
     return {
       version: 1,
       success: false,
@@ -604,10 +760,15 @@ function analyzeDocument() {
 }
 
 
+// ============================================================
+// Protocolo
+// ============================================================
+
 function sendJson(value) {
   if (
     !socket ||
-    socket.readyState !== WebSocket.OPEN
+    socket.readyState !==
+    WebSocket.OPEN
   ) {
     return;
   }
@@ -634,7 +795,9 @@ function handleMessage(message) {
     return;
   }
 
-  if (request.command === "ping") {
+  if (
+    request.command === "ping"
+  ) {
     sendJson({
       version: 1,
       id: request.id || "",
@@ -646,7 +809,8 @@ function handleMessage(message) {
   }
 
   if (
-    request.command === "analyzeDocument"
+    request.command ===
+    "analyzeDocument"
   ) {
     const response =
       analyzeDocument();
@@ -672,67 +836,9 @@ function handleMessage(message) {
 }
 
 
-function connectToLinksFlow() {
-  if (
-    socket &&
-    (
-      socket.readyState === WebSocket.OPEN ||
-      socket.readyState === WebSocket.CONNECTING
-    )
-  ) {
-    return;
-  }
-
-  socket =
-    new WebSocket(
-      "ws://127.0.0.1:17321"
-    );
-
-  socket.onopen = () => {
-    console.log(
-      "LinksFlow Bridge conectado"
-    );
-
-    setStatus(
-      "Conectado a LinksFlow"
-    );
-
-    sendJson({
-      version: 1,
-      event: "bridgeReady"
-    });
-  };
-
-  socket.onmessage = (event) => {
-    console.log(
-      "LinksFlow recibió:",
-      event.data
-    );
-
-    handleMessage(
-      event.data
-    );
-  };
-
-  socket.onerror = (event) => {
-    console.log(
-      "LinksFlow Bridge error",
-      event
-    );
-  };
-
-  socket.onclose = () => {
-    console.log(
-      "LinksFlow Bridge desconectado"
-    );
-
-    socket = null;
-
-    setStatus("Esperando LinksFlow...");
-
-    scheduleReconnect();
-  };
-}
+// ============================================================
+// UI del panel UXP
+// ============================================================
 
 function setStatus(text) {
   try {
@@ -742,17 +848,22 @@ function setStatus(text) {
       );
 
     if (element) {
-      element.textContent = text;
+      element.textContent =
+        text;
     }
   } catch (error) {
   }
 }
 
-const { entrypoints } = require("uxp");
+
+// ============================================================
+// Entry point UXP
+// ============================================================
 
 entrypoints.setup({
   panels: {
     linksFlowBridgePanel: {
+
       create(rootNode) {
         console.log(
           "LinksFlow Bridge panel creado"
@@ -761,41 +872,48 @@ entrypoints.setup({
         shuttingDown = false;
 
         rootNode.innerHTML = `
-                    <div style="
-                        padding: 12px;
-                        font-family: sans-serif;
-                    ">
-                        <div style="
-                            font-weight: bold;
-                            margin-bottom: 8px;
-                        ">
-                            LinksFlow Bridge
-                        </div>
+          <div style="
+            padding: 12px;
+            font-family: sans-serif;
+          ">
+            <div style="
+              font-weight: bold;
+              margin-bottom: 8px;
+            ">
+              LinksFlow Bridge
+            </div>
 
-                        <div id="linksflow-status">
-                            Conectando...
-                        </div>
-                    </div>
-                `;
+            <div id="linksflow-status">
+              Conectando...
+            </div>
+          </div>
+        `;
 
         connectToLinksFlow();
       },
+
 
       show(rootNode) {
         console.log(
           "LinksFlow Bridge panel visible"
         );
 
+        shuttingDown = false;
+
         connectToLinksFlow();
       },
+
 
       hide(rootNode) {
         console.log(
           "LinksFlow Bridge panel oculto"
         );
 
-        // NO cerramos el WebSocket aquí.
+        //
+        // No cerramos el WebSocket.
+        //
       },
+
 
       destroy(rootNode) {
         console.log(
@@ -805,7 +923,10 @@ entrypoints.setup({
         shuttingDown = true;
 
         if (reconnectTimer) {
-          clearTimeout(reconnectTimer);
+          clearTimeout(
+            reconnectTimer
+          );
+
           reconnectTimer = null;
         }
 

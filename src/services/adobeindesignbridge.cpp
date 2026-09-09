@@ -15,9 +15,22 @@ AdobeInDesignBridge::AdobeInDesignBridge(AdobeBridgeTransport *transport, QObjec
 
     connect(&m_analysisTimeout, &QTimer::timeout, this, &AdobeInDesignBridge::handleAnalysisTimeout);
 
-    connect(m_transport, &AdobeBridgeTransport::textMessageReceived, this, &AdobeInDesignBridge::handleMessage);
+    connect(m_transport, &AdobeBridgeTransport::textMessageReceived, this,
+            [this](AdobeHost host, const QString &message) {
+                if (host != AdobeHost::InDesign)
+                {
+                    return;
+                }
 
-    connect(m_transport, &AdobeBridgeTransport::clientDisconnected, this, [this]() {
+                handleMessage(message);
+            });
+
+    connect(m_transport, &AdobeBridgeTransport::clientDisconnected, this, [this](AdobeHost host) {
+        if (host != AdobeHost::InDesign)
+        {
+            return;
+        }
+
         if (m_pendingAnalysisId.isEmpty())
         {
             return;
@@ -26,8 +39,20 @@ AdobeInDesignBridge::AdobeInDesignBridge(AdobeBridgeTransport *transport, QObjec
         m_analysisTimeout.stop();
         m_pendingAnalysisId.clear();
 
-        emit analysisFailed(QStringLiteral("Se perdió la conexión con Adobe InDesign."));
+        emit analysisFailed(tr("Se perdió la conexión con Adobe InDesign."));
     });
+
+    // connect(m_transport, &AdobeBridgeTransport::clientDisconnected, this, [this]() {
+    //     if (m_pendingAnalysisId.isEmpty())
+    //     {
+    //         return;
+    //     }
+    //
+    //     m_analysisTimeout.stop();
+    //     m_pendingAnalysisId.clear();
+    //
+    //     emit analysisFailed(QStringLiteral("Se perdió la conexión con Adobe InDesign."));
+    // });
 }
 
 void AdobeInDesignBridge::analyzeActiveDocument()
@@ -38,7 +63,7 @@ void AdobeInDesignBridge::analyzeActiveDocument()
         return;
     }
 
-    if (!m_transport->hasClient())
+    if (!m_transport->hasClient(AdobeHost::InDesign))
     {
         emit analysisFailed(QStringLiteral("LinksFlow no está conectado con Adobe InDesign."));
         return;
@@ -64,7 +89,7 @@ void AdobeInDesignBridge::analyzeActiveDocument()
 
     m_analysisTimeout.start();
 
-    m_transport->sendTextMessage(QString::fromUtf8(json));
+    m_transport->sendTextMessage(AdobeHost::InDesign, QString::fromUtf8(json));
 }
 
 void AdobeInDesignBridge::handleMessage(const QString &message)
