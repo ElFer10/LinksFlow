@@ -2,8 +2,10 @@
 
 #include "conversionsettings.h"
 #include "imageeditingsettings.h"
+#include "imageusage.h"
 #include "resolutionsettings.h"
 
+#include <QList>
 #include <QString>
 #include <QVariantMap>
 
@@ -27,13 +29,11 @@ struct ProcessingJob
     ImageFormat sourceFormat = ImageFormat::PSD;
     ImageFormat targetFormat = ImageFormat::PSD;
 
-    // InDesign
-    qint64 indesignLinkId = 0;
-    qint64 indesignPageItemId = 0;
+    // Todas las colocaciones de este archivo dentro del documento de InDesign.
+    QList<ImageUsage> usages;
 
-    // Resolución original según InDesign
-    double effectiveResolutionX = 0.0;
-    double effectiveResolutionY = 0.0;
+    double minimumEffectiveResolutionX = 0.0;
+    double minimumEffectiveResolutionY = 0.0;
 
     // Resolución
     bool resizeRequired = false;

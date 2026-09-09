@@ -1,11 +1,27 @@
 #include "processingcontroller.h"
 
 #include <QFileInfo>
+#include <QHash>
 #include <QTimer>
 #include <QUuid>
+#include <limits>
 
 namespace
 {
+
+QString normalizedFilePath(const QString &path)
+{
+    const QFileInfo fileInfo(path);
+
+    const QString canonicalPath = fileInfo.canonicalFilePath();
+
+    if (!canonicalPath.isEmpty())
+    {
+        return canonicalPath;
+    }
+
+    return fileInfo.absoluteFilePath();
+}
 
 bool imageFormatFromString(const QString &value, ImageFormat &format)
 {
@@ -74,153 +90,231 @@ QList<ProcessingJob> ProcessingController::createJobs(const QList<LinkInfo> &lin
 {
     QList<ProcessingJob> jobs;
 
+    // --------------------------------------------------------
+    // 1. Determinar qué archivos físicos deben procesarse.
+    //
+    // Si al menos una colocación está seleccionada, procesamos ese archivo.
+    // --------------------------------------------------------
+
+    QHash<QString, bool> selectedSourcePaths;
+
     for (const LinkInfo &link : links)
     {
 
-        // Solo procesamos links marcados por el usuario.
         if (!link.process)
-        {
             continue;
-        }
 
-        // Solo procesamos links técnicamente válidos.
         if (link.state != LinkProcessState::Ready)
-        {
             continue;
-        }
+
+        const QString sourceKey = normalizedFilePath(link.filePath);
+
+        if (!sourceKey.isEmpty())
+            selectedSourcePaths.insert(sourceKey, true);
+    }
+
+    // --------------------------------------------------------
+    // 2. Crear un job por archivo físico.
+    // --------------------------------------------------------
+
+    QHash<QString, int> jobIndexBySourcePath;
+
+    for (const LinkInfo &link : links)
+    {
+
+        // Una colocación no procesable no puede participar en el cálculo de la imagen.
+
+        if (link.state != LinkProcessState::Ready)
+            continue;
+
+        const QString sourceKey = normalizedFilePath(link.filePath);
+
+        if (sourceKey.isEmpty())
+            continue;
+
+        // Nadie seleccionó este archivo.
+
+        if (!selectedSourcePaths.contains(sourceKey))
+            continue;
+
+        // El formato debe ser soportado.
 
         ImageFormat sourceFormat;
 
         if (!imageFormatFromString(link.fileType, sourceFormat))
-        {
             continue;
-        }
 
-        ProcessingJob job;
+        int jobIndex = -1;
 
-        //
-        // Identificación
-        //
+        // ¿Ya existe el job de este archivo?
 
-        job.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+        const auto existingJob = jobIndexBySourcePath.constFind(sourceKey);
 
-        //
-        // Archivo
-        //
-
-        job.sourcePath = link.filePath;
-
-        // Por ahora trabajamos sobre el mismo path.
-        // Más adelante podremos cambiar esta lógica
-        // cuando implementemos backups y conversiones.
-        job.outputPath = link.filePath;
-
-        job.sourceFormat = sourceFormat;
-
-        job.targetFormat = sourceFormat;
-
-        //
-        // Referencia en InDesign
-        //
-
-        job.indesignLinkId = link.indesignLinkId;
-
-        job.indesignPageItemId = link.indesignPageItemId;
-
-        //
-        // Resolución
-        //
-
-        job.effectiveResolutionX = link.effectiveResolution.x;
-
-        job.effectiveResolutionY = link.effectiveResolution.y;
-
-        job.resolutionUnit = settings.resolution.unit;
-
-        job.optimizationMethod = settings.resolution.optimizationMethod;
-
-        job.cropToInDesignFrame = settings.resolution.cropToInDesignFrame;
-
-        job.safetyArea = settings.resolution.safetyArea;
-
-        job.safetyAreaUnit = settings.resolution.safetyAreaUnit;
-
-        // Por ahora usamos la resolución de color
-        // como objetivo general.
-        //
-        // Más adelante distinguiremos correctamente
-        // imágenes continuas de imágenes monocromas/1-bit.
-        job.targetResolution = settings.resolution.colorResolution;
-
-        job.resizeRequired =
-            job.effectiveResolutionX > job.targetResolution || job.effectiveResolutionY > job.targetResolution;
-
-        //
-        // Edición de imagen
-        //
-
-        const ImageEditingSettings &editing = settings.imageEditing;
-
-        //
-        // Conversión de modo de color
-        //
-
-        job.colorModeConversionRequired = editing.changeColorMode;
-
-        job.sourceColorMode = editing.sourceColorMode;
-
-        job.destinationColorMode = editing.destinationColorMode;
-
-        //
-        // Conversión de perfil ICC
-        //
-
-        job.colorProfileConversionRequired = editing.changeColorProfile;
-
-        job.targetIccProfile = editing.iccProfile;
-
-        //
-        // Capas
-        //
-
-        job.removeHiddenLayers = editing.removeHiddenLayers;
-
-        job.mergeVisibleLayers = editing.mergeVisibleLayers;
-
-        job.flattenImage = editing.flattenImage;
-
-        //
-        // Canales alfa
-        //
-
-        job.alphaChannels = editing.alphaChannels;
-
-        //
-        // Conversión de formato
-        //
-
-        if (settings.conversion.enabled)
+        if (existingJob != jobIndexBySourcePath.constEnd())
         {
-            const ConversionRule *rule = findConversionRule(settings.conversion, sourceFormat);
-
-            if (rule != nullptr && rule->enabled)
-            {
-                job.targetFormat = rule->destinationFormat;
-
-                job.formatConversionRequired = rule->destinationFormat != sourceFormat;
-
-                job.formatOptions = rule->options;
-            }
+            jobIndex = existingJob.value();
         }
+        else
+        {
+
+            //
+            // Crear el job físico.
+            //
+
+            ProcessingJob job;
+
+            job.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+
+            job.sourcePath = link.filePath;
+
+            // Por ahora seguimos trabajando sobre el original.
+            //
+            // BackupService se ocupará después de protegerlo antes de Photoshop.
+
+            job.outputPath = link.filePath;
+
+            job.sourceFormat = sourceFormat;
+
+            job.targetFormat = sourceFormat;
+
+            // Resolución
+
+            job.resolutionUnit = settings.resolution.unit;
+
+            job.optimizationMethod = settings.resolution.optimizationMethod;
+
+            job.cropToInDesignFrame = settings.resolution.cropToInDesignFrame;
+
+            job.safetyArea = settings.resolution.safetyArea;
+
+            job.safetyAreaUnit = settings.resolution.safetyAreaUnit;
+
+            // Por ahora seguimos usando resolución de tono continuo.
+            //
+            // Más adelante añadiremos la distinción bitmap/1-bit.
+
+            job.targetResolution = settings.resolution.colorResolution;
+
+            //
+            // Edición
+            //
+
+            const ImageEditingSettings &editing = settings.imageEditing;
+
+            job.colorModeConversionRequired = editing.changeColorMode;
+
+            job.sourceColorMode = editing.sourceColorMode;
+
+            job.destinationColorMode = editing.destinationColorMode;
+
+            job.colorProfileConversionRequired = editing.changeColorProfile;
+
+            job.targetIccProfile = editing.iccProfile;
+
+            job.removeHiddenLayers = editing.removeHiddenLayers;
+
+            job.mergeVisibleLayers = editing.mergeVisibleLayers;
+
+            job.flattenImage = editing.flattenImage;
+
+            job.alphaChannels = editing.alphaChannels;
+
+            //
+            // Conversión de formato
+            //
+
+            if (settings.conversion.enabled)
+            {
+                const ConversionRule *rule = findConversionRule(settings.conversion, sourceFormat);
+
+                if (rule != nullptr && rule->enabled)
+                {
+                    job.targetFormat = rule->destinationFormat;
+
+                    job.formatConversionRequired = (rule->destinationFormat != sourceFormat);
+
+                    job.formatOptions = rule->options;
+                }
+            }
+
+            //
+            // Estado inicial
+            //
+
+            job.state = ProcessingJobState::Pending;
+
+            job.statusMessage.clear();
+
+            jobs.append(job);
+
+            jobIndex = jobs.size() - 1;
+
+            jobIndexBySourcePath.insert(sourceKey, jobIndex);
+        }
+
+        // ----------------------------------------------------
+        // 3. Añadir esta colocación al job.
+        // ----------------------------------------------------
+
+        ProcessingJob &job = jobs[jobIndex];
+
+        ImageUsage usage;
+
+        usage.indesignLinkId = link.indesignLinkId;
+
+        usage.indesignPageItemId = link.indesignPageItemId;
+
+        usage.page = link.page;
+
+        usage.actualResolution = link.actualResolution;
+
+        usage.effectiveResolution = link.effectiveResolution;
+
+        usage.scale = link.scale;
+
+        usage.rotation = link.rotation;
+
+        usage.flip = link.flip;
+
+        job.usages.append(usage);
+    }
+
+    // --------------------------------------------------------
+    // 4. Determinar la colocación más exigente.
+    // --------------------------------------------------------
+
+    for (ProcessingJob &job : jobs)
+    {
+
+        double minimumX = std::numeric_limits<double>::max();
+
+        double minimumY = std::numeric_limits<double>::max();
+
+        for (const ImageUsage &usage : job.usages)
+        {
+            if (usage.effectiveResolution.x > 0.0)
+                minimumX = qMin(minimumX, usage.effectiveResolution.x);
+
+            if (usage.effectiveResolution.y > 0.0)
+                minimumY = qMin(minimumY, usage.effectiveResolution.y);
+        }
+
+        if (minimumX == std::numeric_limits<double>::max())
+            minimumX = 0.0;
+
+        if (minimumY == std::numeric_limits<double>::max())
+            minimumY = 0.0;
+
+        job.minimumEffectiveResolutionX = minimumX;
+
+        job.minimumEffectiveResolutionY = minimumY;
+
+        // Solo es seguro reducir si TODAS las colocaciones superan la resolución objetivo.
         //
-        // Estado inicial
-        //
+        // Si una colocación ya está en 250 ppi y nuestro objetivo son 300 ppi,
+        // no podemos reducir físicamente el archivo.
 
-        job.state = ProcessingJobState::Pending;
-
-        job.statusMessage.clear();
-
-        jobs.append(job);
+        job.resizeRequired = (minimumX > job.targetResolution && minimumY > job.targetResolution);
     }
 
     return jobs;
@@ -253,8 +347,7 @@ void ProcessingController::processNextJob()
     if (m_cancelRequested)
     {
 
-        // Marcamos como omitidos los trabajos
-        // que todavía no comenzaron.
+        // Marcamos como omitidos los trabajos que todavía no comenzaron.
 
         for (int index = m_currentJobIndex + 1; index < m_jobs.size(); ++index)
         {
@@ -306,18 +399,13 @@ void ProcessingController::processNextJob()
 
     emit jobStarted(job);
 
-    //
     // Simulación temporal.
     //
-    // Más adelante este bloque será reemplazado
-    // por PhotoshopBridge.
-    //
+    // Más adelante este bloque será reemplazado por PhotoshopBridge.
 
     QTimer::singleShot(800, this, [this]() {
         if (m_currentJobIndex < 0 || m_currentJobIndex >= m_jobs.size())
-        {
             return;
-        }
 
         ProcessingJob &job = m_jobs[m_currentJobIndex];
 
@@ -335,9 +423,7 @@ void ProcessingController::processNextJob()
         {
             result.originalSizeBytes = fileInfo.size();
 
-            //
             // Simulamos una reducción del 30 %.
-            //
             result.processedSizeBytes = static_cast<qint64>(fileInfo.size() * 0.70);
         }
 

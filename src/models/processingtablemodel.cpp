@@ -10,9 +10,7 @@ ProcessingTableModel::ProcessingTableModel(QObject *parent) : QAbstractTableMode
 int ProcessingTableModel::rowCount(const QModelIndex &parent) const
 {
     if (parent.isValid())
-    {
         return 0;
-    }
 
     return m_rows.size();
 }
@@ -30,9 +28,7 @@ int ProcessingTableModel::columnCount(const QModelIndex &parent) const
 QVariant ProcessingTableModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid() || index.row() < 0 || index.row() >= m_rows.size())
-    {
         return {};
-    }
 
     const RowData &row = m_rows.at(index.row());
 
@@ -52,25 +48,19 @@ QVariant ProcessingTableModel::data(const QModelIndex &index, int role) const
 
         case StateColumn:
             if (!job.statusMessage.isEmpty())
-            {
                 return QStringLiteral("%1 — %2").arg(stateText(job.state), job.statusMessage);
-            }
 
             return stateText(job.state);
 
         case OriginalSizeColumn:
             if (row.originalSizeBytes <= 0)
-            {
                 return QStringLiteral("—");
-            }
 
             return formatFileSize(row.originalSizeBytes);
 
         case ProcessedSizeColumn:
             if (row.processedSizeBytes <= 0)
-            {
                 return QStringLiteral("—");
-            }
 
             return formatFileSize(row.processedSizeBytes);
 
@@ -86,19 +76,12 @@ QVariant ProcessingTableModel::data(const QModelIndex &index, int role) const
     {
 
         if (index.column() == FileNameColumn)
-        {
-            return job.sourcePath;
-        }
-
+            return tr("%1\nUsada %2 veces en el documento").arg(job.sourcePath).arg(job.usages.size());
         if (index.column() == ActionColumn)
-        {
             return actionText(job);
-        }
 
         if (index.column() == StateColumn)
-        {
             return job.statusMessage;
-        }
     }
 
     return {};
@@ -107,9 +90,7 @@ QVariant ProcessingTableModel::data(const QModelIndex &index, int role) const
 QVariant ProcessingTableModel::headerData(int section, Qt::Orientation orientation, int role) const
 {
     if (orientation != Qt::Horizontal || role != Qt::DisplayRole)
-    {
         return {};
-    }
 
     switch (section)
     {
@@ -153,9 +134,7 @@ void ProcessingTableModel::setJobs(const QList<ProcessingJob> &jobs)
         const QFileInfo fileInfo(job.sourcePath);
 
         if (fileInfo.exists() && fileInfo.isFile())
-        {
             row.originalSizeBytes = fileInfo.size();
-        }
 
         m_rows.append(row);
     }
