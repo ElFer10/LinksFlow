@@ -3,6 +3,7 @@
 #include "services/adobebridgetransport.h"
 #include "services/adobeindesignbridge.h"
 #include "services/adobephotoshopbridge.h"
+#include "services/backupservice.h"
 #include "services/indesignbridge.h"
 #include "services/processingcontroller.h"
 
@@ -10,21 +11,20 @@
 #include "ui/configurationpage.h"
 #include "ui/processing/processingdialog.h"
 
+#include <QAbstractButton>
 #include <QApplication>
 #include <QDebug>
 #include <QLabel>
 #include <QMessageBox>
+#include <QPushButton>
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QString>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
-    constexpr int winWidth = 1200;
-
-    constexpr int winHeight = 760;
-    constexpr int minWinWidth = 900;
-    constexpr int minWinHeight = 600;
+    constexpr int winWidth{1200}, winHeight{760};
+    constexpr int minWinWidth{900}, minWinHeight{600};
 
     const QString appName = QStringLiteral("LinksFlow");
 
@@ -49,9 +49,7 @@ MainWindow::~MainWindow()
     delete m_indesignBridge;
     m_indesignBridge = nullptr;
 
-    //
     // Cerramos y destruimos el transporte mientras MainWindow todavía existe.
-    //
 
     if (m_adobeTransport)
     {
@@ -67,26 +65,17 @@ MainWindow::~MainWindow()
 
 void MainWindow::createInterface()
 {
-    // Contenedor principal
-
     m_pages = new QStackedWidget(this);
 
-    // Adobe Bridge
-
     m_adobeTransport = new AdobeBridgeTransport(this);
-
-    // Bridge InDesign
 
     m_indesignBridge = new AdobeInDesignBridge(m_adobeTransport, this);
     m_photoshopBridge = new AdobePhotoshopBridge(m_adobeTransport, this);
 
-    // Estado InDesign
-
     m_indesignConnectionLabel = new QLabel(this);
-
-    statusBar()->addPermanentWidget(m_indesignConnectionLabel);
     m_photoshopConnectionLabel = new QLabel(this);
 
+    statusBar()->addPermanentWidget(m_indesignConnectionLabel);
     statusBar()->addPermanentWidget(m_photoshopConnectionLabel);
 
     // Connection Changeged
@@ -96,49 +85,28 @@ void MainWindow::createInterface()
         {
 
         case AdobeHost::InDesign:
-
             updateInDesignConnectionState(connected);
-
             break;
         case AdobeHost::Photoshop:
-
             updatePhotoshopConnectionState(connected);
-
             if (connected && m_photoshopBridge)
                 m_photoshopBridge->ping();
-
             break;
         case AdobeHost::Unknown:
             break;
         }
     });
 
-    //
     // Iniciar servidor WebSocket
-    //
-
     if (!m_adobeTransport->start(17321))
         qWarning() << "No se pudo iniciar Adobe Bridge";
-
-    //
-    // Estado inicial.
-    //
-    // En este momento normalmente será false, hasta que el plugin UXP haga handshake.
-    //
 
     updateInDesignConnectionState(m_adobeTransport->hasClient(AdobeHost::InDesign));
     updatePhotoshopConnectionState(m_adobeTransport->hasClient(AdobeHost::Photoshop));
 
-    //
-    // Procesamiento
-    //
-
     m_processingController = new ProcessingController(this);
 
-    //
     // Páginas
-    //
-
     m_configurationPage = new ConfigurationPage(m_pages);
 
     m_pages->addWidget(m_configurationPage);
@@ -149,36 +117,21 @@ void MainWindow::createInterface()
 
     setCentralWidget(m_pages);
 
-    //
     // Configuración → salir
-    //
-
     connect(m_configurationPage, &ConfigurationPage::exitRequested, qApp, &QApplication::quit);
 
-    //
     // Análisis → volver
-    //
-
     connect(m_analysisPage, &AnalysisPage::backRequested, this,
             [this]() { m_pages->setCurrentWidget(m_configurationPage); });
 
-    //
     // Análisis → salir
-    //
-
     connect(m_analysisPage, &AnalysisPage::exitRequested, qApp, &QApplication::quit);
 
-    //
     // Solicitar análisis a InDesign
-    //
-
     connect(m_configurationPage, &ConfigurationPage::analyzeDocumentRequested, this,
             [this]() { m_indesignBridge->analyzeActiveDocument(); });
 
-    //
     // Procesamiento
-    //
-
     connect(m_analysisPage, &AnalysisPage::processRequested, this, [this]() {
         const QList<LinkInfo> links = m_analysisPage->links();
 
@@ -187,7 +140,102 @@ void MainWindow::createInterface()
         const QList<ProcessingJob> jobs = m_processingController->createJobs(links, settings);
 
         if (jobs.isEmpty())
+        {
             return;
+        }
+
+        //
+        // Preguntar si se desea crear backup.
+        //
+
+        QMessageBox backupQuestion(this);
+
+        backupQuestion.setWindowTitle(tr("Copia de seguridad"));
+
+        backupQuestion.setIcon(QMessageBox::Question);
+
+        backupQuestion.setText(tr("LinksFlow va a procesar %1 archivo(s).").arg(jobs.size()));
+
+        backupQuestion.setInformativeText(tr("¿Quieres crear una copia de seguridad "
+                                             "de los archivos originales antes de "
+                                             "procesarlos?"));
+
+        QPushButton *backupButton = backupQuestion.addButton(tr("Crear copia"), QMessageBox::AcceptRole);
+
+        QPushButton *withoutBackupButton = backupQuestion.addButton(tr("Sin copia"), QMessageBox::DestructiveRole);
+
+        QPushButton *cancelButton = backupQuestion.addButton(tr("Cancelar"), QMessageBox::RejectRole);
+
+        backupQuestion.setDefaultButton(backupButton);
+
+        backupQuestion.exec();
+
+        QAbstractButton *clickedButton = backupQuestion.clickedButton();
+
+        //
+        // Cancelar.
+        //
+
+        if (clickedButton == static_cast<QAbstractButton *>(cancelButton))
+        {
+            return;
+        }
+
+        //
+        // Crear copia de seguridad.
+        //
+
+        if (clickedButton == static_cast<QAbstractButton *>(backupButton))
+        {
+            if (m_currentDocument.path.isEmpty())
+            {
+                QMessageBox::critical(this, tr("Copia de seguridad"),
+                                      tr("No se puede crear la copia de "
+                                         "seguridad porque no se conoce "
+                                         "la ubicación del documento "
+                                         "de InDesign."));
+
+                return;
+            }
+
+            const BackupResult backupResult = m_backupService->createBackup(jobs, m_currentDocument.path);
+
+            if (!backupResult.success)
+            {
+
+                QMessageBox::critical(this,
+                                      tr("Error al crear la copia "
+                                         "de seguridad"),
+                                      backupResult.errorMessage);
+
+                //
+                // Si el usuario pidió backup
+                // y este falla, no procesamos.
+                //
+
+                return;
+            }
+
+            QMessageBox::information(this, tr("Copia de seguridad creada"),
+                                     tr("Se copiaron %1 archivo(s) en:\n\n%2")
+                                         .arg(backupResult.copiedFiles)
+                                         .arg(backupResult.backupDirectory));
+        }
+
+        //
+        // Si no pulsó ni "Crear copia"
+        // ni "Sin copia", no continuar.
+        //
+
+        if (clickedButton != static_cast<QAbstractButton *>(backupButton) &&
+            clickedButton != static_cast<QAbstractButton *>(withoutBackupButton))
+        {
+            return;
+        }
+
+        //
+        // Crear modal de procesamiento.
+        //
 
         auto *dialog = new ProcessingDialog(this);
 
@@ -209,7 +257,6 @@ void MainWindow::createInterface()
 
         m_processingController->processJobs(jobs);
     });
-
     // Resultado de análisis
     connect(m_indesignBridge, &InDesignBridge::analysisCompleted, this, [this](const InDesignDocumentInfo &document) {
         m_currentDocument = document;

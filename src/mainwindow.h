@@ -12,6 +12,7 @@ class AdobeBridgeTransport;
 class ProcessingController;
 class ConfigurationPage;
 class AdobePhotoshopBridge;
+class BackupService;
 
 class MainWindow : public QMainWindow
 {
@@ -32,6 +33,7 @@ class MainWindow : public QMainWindow
     QLabel *m_photoshopConnectionLabel = nullptr;
     AdobePhotoshopBridge *m_photoshopBridge = nullptr;
     InDesignDocumentInfo m_currentDocument;
+    BackupService *m_backupService = nullptr;
 
     void createInterface();
     void updateInDesignConnectionState(bool connected);
