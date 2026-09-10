@@ -1,4 +1,5 @@
 #pragma once
+#include "domain/indesigndocumentinfo.h"
 #include "services/indesignbridge.h"
 #include "ui/configurationpage.h"
 #include <QLabel>
@@ -30,6 +31,7 @@ class MainWindow : public QMainWindow
     QLabel *m_indesignConnectionLabel = nullptr;
     QLabel *m_photoshopConnectionLabel = nullptr;
     AdobePhotoshopBridge *m_photoshopBridge = nullptr;
+    InDesignDocumentInfo m_currentDocument;
 
     void createInterface();
     void updateInDesignConnectionState(bool connected);

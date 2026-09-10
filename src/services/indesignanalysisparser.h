@@ -7,19 +7,23 @@
 
 #include "../domain/linkinfo.h"
 
-class InDesignAnalysisParser {
-public:
-  struct Result {
-    bool success = false;
-    QString errorMessage;
-    QString documentName;
-    QList<LinkInfo> links;
-  };
+class InDesignAnalysisParser
+{
+  public:
+    struct Result
+    {
+        bool success = false;
+        QString errorMessage;
+        qint64 documentId = 0;
+        QString documentName;
+        QString documentPath;
+        QList<LinkInfo> links;
+    };
 
-  static Result parse(const QByteArray &json);
+    static Result parse(const QByteArray &json);
 
-private:
-  static LinkInfo parseLink(const QJsonObject &object);
+  private:
+    static LinkInfo parseLink(const QJsonObject &object);
 
-  static LinkProcessState parseState(const QString &state);
+    static LinkProcessState parseState(const QString &state);
 };

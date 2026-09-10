@@ -21,6 +21,7 @@
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
     constexpr int winWidth = 1200;
+
     constexpr int winHeight = 760;
     constexpr int minWinWidth = 900;
     constexpr int minWinHeight = 600;
@@ -104,9 +105,7 @@ void MainWindow::createInterface()
             updatePhotoshopConnectionState(connected);
 
             if (connected && m_photoshopBridge)
-            {
                 m_photoshopBridge->ping();
-            }
 
             break;
         case AdobeHost::Unknown:
@@ -119,9 +118,7 @@ void MainWindow::createInterface()
     //
 
     if (!m_adobeTransport->start(17321))
-    {
         qWarning() << "No se pudo iniciar Adobe Bridge";
-    }
 
     //
     // Estado inicial.
@@ -213,39 +210,24 @@ void MainWindow::createInterface()
         m_processingController->processJobs(jobs);
     });
 
-    //
     // Resultado de análisis
-    //
+    connect(m_indesignBridge, &InDesignBridge::analysisCompleted, this, [this](const InDesignDocumentInfo &document) {
+        m_currentDocument = document;
 
-    connect(m_indesignBridge, &InDesignBridge::analysisCompleted, this, [this](const QList<LinkInfo> &links) {
-        m_analysisPage->setLinks(links);
+        m_analysisPage->setLinks(document.links);
+        for (const LinkInfo &link : document.links)
+            m_pages->setCurrentWidget(m_analysisPage);
 
-        /////// Prueba temporal
+        qDebug() << "Documento InDesign:" << document.name;
 
-        for (const LinkInfo &link : links)
-        {
-            if (link.state == LinkProcessState::Ready && !link.filePath.isEmpty())
-            {
-                m_photoshopBridge->inspectImage(link.filePath);
-
-                break;
-            }
-        }
-
-        m_pages->setCurrentWidget(m_analysisPage);
+        qDebug() << "Ruta documento:" << document.path;
     });
 
-    //
     // Error de análisis
-    //
-
     connect(m_indesignBridge, &InDesignBridge::analysisFailed, this,
             [this](const QString &message) { QMessageBox::critical(this, tr("Error de análisis"), message); });
 
-    //
     // Diagnóstico de conexiones Adobe
-    //
-
     connect(m_adobeTransport, &AdobeBridgeTransport::clientConnected, this, [](AdobeHost host) {
         QString hostName;
 

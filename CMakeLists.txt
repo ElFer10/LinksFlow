@@ -42,8 +42,6 @@ qt_add_executable(LinksFlow
     src/services/previewservice.cpp
     src/services/previewservice.h
     src/services/indesignbridge.h
-    src/services/mockindesignbridge.cpp
-    src/services/mockindesignbridge.h
     src/services/indesignanalysisparser.cpp
     src/services/indesignanalysisparser.h
     src/services/adobeindesignbridge.cpp
@@ -58,6 +56,8 @@ qt_add_executable(LinksFlow
     src/ui/processing/processingdialog.h
     src/services/adobephotoshopbridge.cpp
     src/services/adobephotoshopbridge.h
+    src/services/backupservice.cpp
+    src/services/backupservice.h
 )
 
 target_link_libraries(LinksFlow

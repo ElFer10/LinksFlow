@@ -1,5 +1,6 @@
 #include "adobeindesignbridge.h"
 
+#include "../domain/indesigndocumentinfo.h"
 #include "adobebridgetransport.h"
 #include "indesignanalysisparser.h"
 
@@ -18,41 +19,23 @@ AdobeInDesignBridge::AdobeInDesignBridge(AdobeBridgeTransport *transport, QObjec
     connect(m_transport, &AdobeBridgeTransport::textMessageReceived, this,
             [this](AdobeHost host, const QString &message) {
                 if (host != AdobeHost::InDesign)
-                {
                     return;
-                }
 
                 handleMessage(message);
             });
 
     connect(m_transport, &AdobeBridgeTransport::clientDisconnected, this, [this](AdobeHost host) {
         if (host != AdobeHost::InDesign)
-        {
             return;
-        }
 
         if (m_pendingAnalysisId.isEmpty())
-        {
             return;
-        }
 
         m_analysisTimeout.stop();
         m_pendingAnalysisId.clear();
 
         emit analysisFailed(tr("Se perdió la conexión con Adobe InDesign."));
     });
-
-    // connect(m_transport, &AdobeBridgeTransport::clientDisconnected, this, [this]() {
-    //     if (m_pendingAnalysisId.isEmpty())
-    //     {
-    //         return;
-    //     }
-    //
-    //     m_analysisTimeout.stop();
-    //     m_pendingAnalysisId.clear();
-    //
-    //     emit analysisFailed(QStringLiteral("Se perdió la conexión con Adobe InDesign."));
-    // });
 }
 
 void AdobeInDesignBridge::analyzeActiveDocument()
@@ -99,19 +82,16 @@ void AdobeInDesignBridge::handleMessage(const QString &message)
     const QJsonDocument document = QJsonDocument::fromJson(message.toUtf8(), &parseError);
 
     if (parseError.error != QJsonParseError::NoError || !document.isObject())
-    {
         return;
-    }
 
     const QJsonObject object = document.object();
 
-    // Los eventos como bridgeReady no son respuestas a una petición.
+    // Eventos como bridgeReady no son respuestas a una petición.
+
     const QString responseId = object.value(QStringLiteral("id")).toString();
 
     if (responseId.isEmpty() || responseId != m_pendingAnalysisId)
-    {
         return;
-    }
 
     m_analysisTimeout.stop();
     m_pendingAnalysisId.clear();
@@ -121,19 +101,23 @@ void AdobeInDesignBridge::handleMessage(const QString &message)
     if (!result.success)
     {
         emit analysisFailed(result.errorMessage);
-
         return;
     }
 
-    emit analysisCompleted(result.links);
+    InDesignDocumentInfo documentInfo;
+
+    documentInfo.id = result.documentId;
+    documentInfo.name = result.documentName;
+    documentInfo.path = result.documentPath;
+    documentInfo.links = result.links;
+
+    emit analysisCompleted(documentInfo);
 }
 
 void AdobeInDesignBridge::handleAnalysisTimeout()
 {
     if (m_pendingAnalysisId.isEmpty())
-    {
         return;
-    }
 
     m_pendingAnalysisId.clear();
 

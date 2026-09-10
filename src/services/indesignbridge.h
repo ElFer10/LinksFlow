@@ -4,22 +4,26 @@
 #include <QObject>
 #include <QString>
 
+#include "../domain/indesigndocumentinfo.h"
 #include "../domain/linkinfo.h"
 
-class InDesignBridge : public QObject {
-  Q_OBJECT
+class InDesignBridge : public QObject
+{
+    Q_OBJECT
 
-public:
-  explicit InDesignBridge(QObject *parent = nullptr) : QObject(parent) {}
+  public:
+    explicit InDesignBridge(QObject *parent = nullptr) : QObject(parent)
+    {
+    }
 
-  ~InDesignBridge() override = default;
+    ~InDesignBridge() override = default;
 
-  virtual void analyzeActiveDocument() = 0;
+    virtual void analyzeActiveDocument() = 0;
 
-signals:
-  void analysisStarted();
+  signals:
+    void analysisStarted();
 
-  void analysisCompleted(const QList<LinkInfo> &links);
+    void analysisCompleted(const InDesignDocumentInfo &document);
 
-  void analysisFailed(const QString &message);
+    void analysisFailed(const QString &message);
 };

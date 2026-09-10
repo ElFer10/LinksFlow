@@ -1,15 +1,41 @@
-const { app } = require("indesign");
+const indesign = require("indesign");
+const app = indesign.app;
+
 const { entrypoints } = require("uxp");
 
 let socket = null;
 let reconnectTimer = null;
 let shuttingDown = false;
 
-const NS_PHOTOSHOP =
-  "http://ns.adobe.com/photoshop/1.0/";
+const NS_PHOTOSHOP = "http://ns.adobe.com/photoshop/1.0/";
 
 const RECONNECT_DELAY_MS = 2000;
 
+
+// ============================================================
+// Utilidades de ruta
+// ============================================================
+
+async function resolveDocumentPath(document) {
+  if (!document)
+    return "";
+
+  try {
+    const fullName =
+      await document.fullName;
+
+    if (fullName && fullName.nativePath) {
+      return String(fullName.nativePath);
+    }
+  } catch (error) {
+    console.log(
+      "Error obteniendo document.fullName:",
+      error
+    );
+  }
+
+  return "";
+}
 
 // ============================================================
 // Conexión con LinksFlow
@@ -54,24 +80,12 @@ function connectToLinksFlow() {
 
   setStatus("Conectando...");
 
-  socket =
-    new WebSocket(
-      "ws://127.0.0.1:17321"
-    );
+  socket = new WebSocket("ws://127.0.0.1:17321");
 
   socket.onopen = () => {
-    console.log(
-      "LinksFlow Bridge: WebSocket abierto"
-    );
+    console.log("LinksFlow Bridge: WebSocket abierto");
 
-    //
-    // La conexión WebSocket existe,
-    // pero LinksFlow todavía debe identificar
-    // este cliente como InDesign.
-    //
-    setStatus(
-      "Identificando InDesign..."
-    );
+    setStatus("Identificando InDesign...");
 
     sendJson({
       version: 1,
@@ -85,19 +99,9 @@ function connectToLinksFlow() {
     let message = null;
 
     try {
-      message =
-        JSON.parse(event.data);
+      message = JSON.parse(event.data);
     } catch (error) {
-      //
-      // Si no es JSON válido,
-      // dejamos que handleMessage()
-      // gestione el error.
-      //
     }
-
-    //
-    // Confirmación del handshake.
-    //
 
     if (
       message &&
@@ -105,40 +109,28 @@ function connectToLinksFlow() {
       "bridgeRegistered" &&
       message.host === "indesign"
     ) {
-      console.log(
-        "LinksFlow Bridge: InDesign registrado"
-      );
-
-      setStatus(
-        "Conectado a LinksFlow"
-      );
+      setStatus("Conectado a LinksFlow");
 
       return;
     }
 
     handleMessage(
       event.data
+    ).catch(
+      (error) => {
+        console.log("Error procesando mensaje:", error);
+      }
     );
   };
 
-
   socket.onerror = (event) => {
-    console.log(
-      "LinksFlow Bridge error",
-      event
-    );
-
-    //
-    // No reconectamos aquí.
-    // onclose se encargará.
-    //
+    console.log("LinksFlow Bridge error", event);
+    // onclose gestionará la reconexión.
   };
 
 
   socket.onclose = () => {
-    console.log(
-      "LinksFlow Bridge desconectado"
-    );
+    console.log("LinksFlow Bridge desconectado");
 
     socket = null;
 
@@ -171,6 +163,7 @@ function safeValue(
     }
 
     return value;
+
   } catch (error) {
     return fallback;
   }
@@ -187,6 +180,7 @@ function arrayValue(value) {
 
   try {
     return Array.from(value);
+
   } catch (error) {
     return null;
   }
@@ -396,11 +390,9 @@ function determineState(
 
   const constructorName =
     safeValue(
-      () =>
-        parent.constructorName,
+      () => parent.constructorName,
       safeValue(
-        () =>
-          parent.constructor.name,
+        () => parent.constructor.name,
         ""
       )
     );
@@ -587,8 +579,7 @@ function analyzeLink(link) {
     parent
       ? resolutionObject(
         safeValue(
-          () =>
-            parent.effectivePpi,
+          () => parent.effectivePpi,
           null
         )
       )
@@ -710,7 +701,38 @@ function analyzeLink(link) {
 // Análisis del documento
 // ============================================================
 
-function analyzeDocument() {
+async function analyzeDocument() {
+
+  if (!app) {
+    return {
+      version: 1,
+      success: false,
+      error:
+        "El objeto app de InDesign no está disponible."
+    };
+  }
+
+  if (!app.documents) {
+    return {
+      version: 1,
+      success: false,
+      error:
+        "app.documents no está disponible en InDesign."
+    };
+  }
+
+  if (
+    app.documents.length === 0
+  ) {
+    return {
+      version: 1,
+      success: false,
+      error:
+        "No hay ningún documento abierto."
+    };
+  }
+
+
   if (
     app.documents.length === 0
   ) {
@@ -739,6 +761,11 @@ function analyzeDocument() {
     );
   }
 
+  const documentPath =
+    await resolveDocumentPath(
+      document
+    );
+
   return {
     version: 1,
     success: true,
@@ -749,6 +776,8 @@ function analyzeDocument() {
         ""
       ),
 
+    documentPath,
+
     documentId:
       safeValue(
         () => document.id,
@@ -758,7 +787,6 @@ function analyzeDocument() {
     links
   };
 }
-
 
 // ============================================================
 // Protocolo
@@ -773,19 +801,19 @@ function sendJson(value) {
     return;
   }
 
-  socket.send(
-    JSON.stringify(value)
+  socket.send(JSON.stringify(value)
   );
 }
 
-
-function handleMessage(message) {
+async function handleMessage(message) {
   let request;
 
   try {
     request =
       JSON.parse(message);
+
   } catch (error) {
+
     sendJson({
       version: 1,
       success: false,
@@ -812,13 +840,30 @@ function handleMessage(message) {
     request.command ===
     "analyzeDocument"
   ) {
-    const response =
-      analyzeDocument();
+    try {
+      const response =
+        await analyzeDocument();
 
-    response.id =
-      request.id || "";
+      response.id =
+        request.id || "";
 
-    sendJson(response);
+      sendJson(
+        response
+      );
+
+    } catch (error) {
+
+      sendJson({
+        version: 1,
+        id: request.id || "",
+        success: false,
+        error:
+          error &&
+            error.message
+            ? error.message
+            : String(error)
+      });
+    }
 
     return;
   }
@@ -851,6 +896,7 @@ function setStatus(text) {
       element.textContent =
         text;
     }
+
   } catch (error) {
   }
 }
