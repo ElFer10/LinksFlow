@@ -8,12 +8,9 @@
 BackupService::BackupService(QObject *parent) : QObject(parent)
 {
 }
-
 BackupResult BackupService::createBackup(const QList<ProcessingJob> &jobs, const QString &documentPath) const
 {
     BackupResult result;
-
-    // Necesitamos conocer dónde está guardado el documento de InDesign.
 
     if (documentPath.isEmpty())
     {
@@ -50,10 +47,26 @@ BackupResult BackupService::createBackup(const QList<ProcessingJob> &jobs, const
 
     result.backupDirectory = backupDirectory;
 
-    // Protección adicional.
+    // Helper local: si algo falla después de haber creado la carpeta, eliminamos el backup incompleto.
+
+    const auto failBackup = [&result, &backupDirectory](const QString &message) -> BackupResult {
+        result.success = false;
+        result.errorMessage = message;
+        result.copiedFiles = 0;
+
+        QDir directory(backupDirectory);
+
+        if (directory.exists())
+            directory.removeRecursively();
+
+        result.backupDirectory.clear();
+
+        return result;
+    };
+
     //
-    // ProcessingController ya debería haber agrupado los jobs por archivo
-    // físico, pero BackupService no depende de eso.
+    // Protección adicional contra duplicados.
+    //
 
     QSet<QString> copiedSources;
 
@@ -64,38 +77,53 @@ BackupResult BackupService::createBackup(const QList<ProcessingJob> &jobs, const
         QString sourcePath = sourceInfo.canonicalFilePath();
 
         if (sourcePath.isEmpty())
+        {
             sourcePath = sourceInfo.absoluteFilePath();
+        }
+
+        //
+        // Un job sin ruta válida se considera error.
+        // No conviene ignorarlo silenciosamente.
+        //
 
         if (sourcePath.isEmpty())
-            continue;
+        {
+            return failBackup(tr("No se pudo determinar la ruta "
+                                 "del archivo:\n%1")
+                                  .arg(job.sourcePath));
+        }
 
         if (copiedSources.contains(sourcePath))
+        {
             continue;
+        }
 
         copiedSources.insert(sourcePath);
 
         //
-        // Si un archivo que vamos a modificar no existe, abortamos Todo el backup.
+        // Verificar el origen.
         //
 
         if (!sourceInfo.exists() || !sourceInfo.isFile())
         {
-            result.errorMessage = tr("No se encontró el archivo:\n%1").arg(job.sourcePath);
-
-            return result;
+            return failBackup(tr("No se encontró el archivo:\n%1").arg(job.sourcePath));
         }
+
+        //
+        // Determinar destino.
+        //
 
         QString destinationPath = destinationForFile(sourcePath, projectDirectory, backupDirectory);
 
         if (destinationPath.isEmpty())
         {
-            result.errorMessage = tr("No se pudo determinar dónde guardar la copia de:\n%1").arg(sourcePath);
-
-            return result;
+            return failBackup(tr("No se pudo determinar dónde "
+                                 "guardar la copia de:\n%1")
+                                  .arg(sourcePath));
         }
 
         //
-        // Crear las carpetas intermedias.
+        // Crear carpetas intermedias.
         //
 
         const QFileInfo destinationInfo(destinationPath);
@@ -104,32 +132,44 @@ BackupResult BackupService::createBackup(const QList<ProcessingJob> &jobs, const
 
         if (!destinationDirectory.mkpath(destinationInfo.absolutePath()))
         {
-            result.errorMessage = tr("No se pudo crear la carpeta:\n%1").arg(destinationInfo.absolutePath());
-
-            return result;
+            return failBackup(tr("No se pudo crear la carpeta:\n%1").arg(destinationInfo.absolutePath()));
         }
 
         //
-        // Protección contra cualquier colisión.
+        // Evitar colisiones.
         //
 
         destinationPath = uniqueDestinationPath(destinationPath);
 
+        //
+        // Copiar.
+        //
+
         if (!QFile::copy(sourcePath, destinationPath))
         {
-            result.errorMessage = tr("No se pudo crear la copia de seguridad de:\n%1").arg(sourcePath);
-
-            return result;
+            return failBackup(tr("No se pudo crear la copia "
+                                 "de seguridad de:\n%1")
+                                  .arg(sourcePath));
         }
 
         ++result.copiedFiles;
+    }
+
+    //
+    // Un backup de cero archivos tampoco
+    // debería considerarse válido.
+    //
+
+    if (result.copiedFiles == 0)
+    {
+        return failBackup(tr("No había archivos para incluir "
+                             "en la copia de seguridad."));
     }
 
     result.success = true;
 
     return result;
 }
-
 QString BackupService::createBackupDirectory(const QString &projectDirectory) const
 {
     QDir projectDir(projectDirectory);
