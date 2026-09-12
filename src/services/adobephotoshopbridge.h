@@ -5,6 +5,20 @@
 
 class AdobeBridgeTransport;
 
+struct PhotoshopProcessResult
+{
+    QString sourcePath;
+    QString outputPath;
+
+    double originalWidth = 0.0;
+    double originalHeight = 0.0;
+    double originalResolution = 0.0;
+
+    double processedWidth = 0.0;
+    double processedHeight = 0.0;
+    double processedResolution = 0.0;
+};
+
 struct PhotoshopImageInfo
 {
     QString name;
@@ -30,17 +44,21 @@ class AdobePhotoshopBridge : public QObject
     void ping();
 
     void inspectImage(const QString &path);
+    void processResolution(const QString &sourcePath, double scaleFactor);
 
   signals:
     void pingSucceeded();
     void pingFailed(const QString &message);
     void imageInspected(const PhotoshopImageInfo &info);
     void imageInspectionFailed(const QString &message);
+    void resolutionProcessed(const PhotoshopProcessResult &result);
+    void resolutionProcessingFailed(const QString &message);
 
   private:
     void handleMessage(const QString &message);
     void handlePingTimeout();
     void handleInspectionTimeout();
+    void handleProcessingTimeout();
 
   private:
     AdobeBridgeTransport *m_transport = nullptr;
@@ -49,4 +67,7 @@ class AdobePhotoshopBridge : public QObject
 
     QString m_pendingPingId;
     QTimer m_pingTimeout;
+
+    QString m_pendingProcessingId;
+    QTimer m_processingTimeout;
 };

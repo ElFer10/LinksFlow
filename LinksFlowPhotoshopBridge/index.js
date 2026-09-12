@@ -377,6 +377,42 @@ async function handleMessage(message) {
     return;
   }
 
+  if (
+    request.command ===
+    "processResolution"
+  ) {
+    try {
+      const result =
+        await processResolution(
+          request.path || "",
+          Number(
+            request.scaleFactor
+          )
+        );
+
+      sendJson({
+        version: 1,
+        id: request.id || "",
+        success: true,
+        result
+      });
+
+    } catch (error) {
+      sendJson({
+        version: 1,
+        id: request.id || "",
+        success: false,
+        error:
+          error &&
+            error.message
+            ? error.message
+            : String(error)
+      });
+    }
+
+    return;
+  }
+
   //
   // Comando desconocido
   //
@@ -504,3 +540,144 @@ entrypoints.setup({
     }
   }
 });
+
+async function processResolution(
+  path,
+  scaleFactor
+) {
+  if (!path) {
+    throw new Error(
+      "No se recibió la ruta del archivo."
+    );
+  }
+
+  if (
+    !Number.isFinite(scaleFactor) ||
+    scaleFactor <= 0 ||
+    scaleFactor >= 1
+  ) {
+    throw new Error(
+      "El factor de reducción no es válido."
+    );
+  }
+
+  const fileUrl =
+    fileUrlFromNativePath(path);
+
+  const entry =
+    await fs.getEntryWithUrl(
+      fileUrl
+    );
+
+  if (!entry || !entry.isFile) {
+    throw new Error(
+      "La ruta no corresponde a un archivo."
+    );
+  }
+
+  let result = null;
+
+  await core.executeAsModal(
+    async () => {
+      let document = null;
+
+      try {
+        document =
+          await app.open(entry);
+
+        const originalWidth =
+          Number(document.width) || 0;
+
+        const originalHeight =
+          Number(document.height) || 0;
+
+        const originalResolution =
+          Number(document.resolution) || 0;
+
+        if (
+          originalWidth <= 0 ||
+          originalHeight <= 0 ||
+          originalResolution <= 0
+        ) {
+          throw new Error(
+            "Photoshop devolvió dimensiones "
+            + "o resolución inválidas."
+          );
+        }
+
+        const processedWidth =
+          Math.max(
+            1,
+            Math.round(
+              originalWidth *
+              scaleFactor
+            )
+          );
+
+        const processedHeight =
+          Math.max(
+            1,
+            Math.round(
+              originalHeight *
+              scaleFactor
+            )
+          );
+
+        const processedResolution =
+          originalResolution *
+          scaleFactor;
+
+        await document.resizeImage(
+          processedWidth,
+          processedHeight,
+          processedResolution,
+          constants.ResampleMethod
+            .BICUBICSHARPER
+        );
+
+        //
+        // El documento fue abierto desde
+        // un archivo existente, así que save()
+        // sobrescribe ese archivo.
+        //
+
+        await document.save();
+
+        result = {
+          sourcePath: path,
+          outputPath: path,
+
+          originalWidth,
+          originalHeight,
+          originalResolution,
+
+          processedWidth:
+            Number(document.width) || 0,
+
+          processedHeight:
+            Number(document.height) || 0,
+
+          processedResolution:
+            Number(document.resolution) || 0
+        };
+
+      } finally {
+        if (document) {
+          try {
+            await document.close(
+              constants.SaveOptions
+                .DONOTSAVECHANGES
+            );
+          } catch (error) {
+          }
+        }
+      }
+    },
+    {
+      commandName:
+        "LinksFlow: optimizar resolución"
+    }
+  );
+
+  return result;
+}

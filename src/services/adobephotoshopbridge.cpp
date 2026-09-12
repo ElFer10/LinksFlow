@@ -16,51 +16,53 @@ AdobePhotoshopBridge::AdobePhotoshopBridge(AdobeBridgeTransport *transport, QObj
     connect(&m_pingTimeout, &QTimer::timeout, this, &AdobePhotoshopBridge::handlePingTimeout);
 
     if (!m_transport)
-    {
         return;
-    }
-
-    //
-    // Solo escuchamos mensajes procedentes del cliente Photoshop.
-    //
 
     connect(m_transport, &AdobeBridgeTransport::textMessageReceived, this,
             [this](AdobeHost host, const QString &message) {
                 if (host != AdobeHost::Photoshop)
-                {
                     return;
-                }
 
                 handleMessage(message);
             });
 
-    //
-    // Si Photoshop desaparece durante un ping pendiente, cancelamos inmediatamente la solicitud.
-    //
-
     connect(m_transport, &AdobeBridgeTransport::clientDisconnected, this, [this](AdobeHost host) {
         if (host != AdobeHost::Photoshop)
-        {
             return;
+
+        if (!m_pendingPingId.isEmpty())
+        {
+            m_pingTimeout.stop();
+            m_pendingPingId.clear();
+
+            emit pingFailed(tr("Se perdió la conexión con Adobe Photoshop."));
         }
 
-        if (m_pendingPingId.isEmpty())
+        if (!m_pendingInspectionId.isEmpty())
         {
-            return;
+            m_inspectionTimeout.stop();
+            m_pendingInspectionId.clear();
+
+            emit imageInspectionFailed(tr("Se perdió la conexión con Adobe Photoshop."));
         }
+        if (!m_pendingProcessingId.isEmpty())
+        {
+            m_processingTimeout.stop();
+            m_pendingProcessingId.clear();
 
-        m_pingTimeout.stop();
-
-        m_pendingPingId.clear();
-
-        emit pingFailed(tr("Se perdió la conexión con Adobe Photoshop."));
+            emit resolutionProcessingFailed(tr("Se perdió la conexión "
+                                               "con Adobe Photoshop."));
+        }
     });
 
     m_inspectionTimeout.setSingleShot(true);
-
     m_inspectionTimeout.setInterval(15000);
 
     connect(&m_inspectionTimeout, &QTimer::timeout, this, &AdobePhotoshopBridge::handleInspectionTimeout);
+    m_processingTimeout.setSingleShot(true);
+    m_processingTimeout.setInterval(60000);
+
+    connect(&m_processingTimeout, &QTimer::timeout, this, &AdobePhotoshopBridge::handleProcessingTimeout);
 }
 
 bool AdobePhotoshopBridge::isConnected() const
@@ -97,7 +99,6 @@ void AdobePhotoshopBridge::ping()
 
     request["version"] = 1;
     request["id"] = m_pendingPingId;
-
     request["command"] = QStringLiteral("ping");
 
     const QString message = QString::fromUtf8(QJsonDocument(request).toJson(QJsonDocument::Compact));
@@ -110,14 +111,11 @@ void AdobePhotoshopBridge::ping()
 void AdobePhotoshopBridge::handleInspectionTimeout()
 {
     if (m_pendingInspectionId.isEmpty())
-    {
         return;
-    }
 
     m_pendingInspectionId.clear();
 
-    emit imageInspectionFailed(tr("Adobe Photoshop no respondió "
-                                  "a la inspección de la imagen."));
+    emit imageInspectionFailed(tr("Adobe Photoshop no respondió a la inspección de la imagen."));
 }
 
 void AdobePhotoshopBridge::handleMessage(const QString &message)
@@ -127,17 +125,11 @@ void AdobePhotoshopBridge::handleMessage(const QString &message)
     const QJsonDocument document = QJsonDocument::fromJson(message.toUtf8(), &parseError);
 
     if (parseError.error != QJsonParseError::NoError || !document.isObject())
-    {
         return;
-    }
 
     const QJsonObject object = document.object();
 
     const QString responseId = object.value("id").toString();
-
-    //
-    // Respuesta a ping
-    //
 
     if (!m_pendingPingId.isEmpty() && responseId == m_pendingPingId)
     {
@@ -152,10 +144,7 @@ void AdobePhotoshopBridge::handleMessage(const QString &message)
             QString error = object.value("error").toString();
 
             if (error.isEmpty())
-            {
-                error = tr("Adobe Photoshop respondió "
-                           "con un error.");
-            }
+                error = tr("Adobe Photoshop respondió con un error.");
 
             emit pingFailed(error);
 
@@ -166,9 +155,7 @@ void AdobePhotoshopBridge::handleMessage(const QString &message)
 
         if (result != QStringLiteral("pong"))
         {
-            emit pingFailed(tr("Adobe Photoshop devolvió "
-                               "una respuesta inesperada."));
-
+            emit pingFailed(tr("Adobe Photoshop devolvió una respuesta inesperada."));
             return;
         }
 
@@ -177,14 +164,10 @@ void AdobePhotoshopBridge::handleMessage(const QString &message)
         return;
     }
 
-    //
     // Respuesta a inspectImage
-    //
-
     if (!m_pendingInspectionId.isEmpty() && responseId == m_pendingInspectionId)
     {
         m_inspectionTimeout.stop();
-
         m_pendingInspectionId.clear();
 
         const bool success = object.value("success").toBool(false);
@@ -195,9 +178,7 @@ void AdobePhotoshopBridge::handleMessage(const QString &message)
             QString error = object.value("error").toString();
 
             if (error.isEmpty())
-            {
                 error = tr("Adobe Photoshop no pudo inspeccionar la imagen.");
-            }
 
             emit imageInspectionFailed(error);
 
@@ -209,34 +190,69 @@ void AdobePhotoshopBridge::handleMessage(const QString &message)
         PhotoshopImageInfo info;
 
         info.name = result.value("name").toString();
-
         info.path = result.value("path").toString();
-
         info.width = result.value("width").toDouble();
-
         info.height = result.value("height").toDouble();
-
         info.resolution = result.value("resolution").toDouble();
-
         info.mode = result.value("mode").toString();
-
         info.layerCount = result.value("layerCount").toInt();
 
         emit imageInspected(info);
 
         return;
     }
+    if (!m_pendingProcessingId.isEmpty() && responseId == m_pendingProcessingId)
+    {
+        m_processingTimeout.stop();
+        m_pendingProcessingId.clear();
+
+        const bool success = object.value("success").toBool(false);
+
+        if (!success)
+        {
+            QString error = object.value("error").toString();
+
+            if (error.isEmpty())
+            {
+                error = tr("Adobe Photoshop no pudo "
+                           "procesar la imagen.");
+            }
+
+            emit resolutionProcessingFailed(error);
+
+            return;
+        }
+
+        const QJsonObject result = object.value("result").toObject();
+
+        PhotoshopProcessResult processResult;
+
+        processResult.sourcePath = result.value("sourcePath").toString();
+
+        processResult.outputPath = result.value("outputPath").toString();
+
+        processResult.originalWidth = result.value("originalWidth").toDouble();
+
+        processResult.originalHeight = result.value("originalHeight").toDouble();
+
+        processResult.originalResolution = result.value("originalResolution").toDouble();
+
+        processResult.processedWidth = result.value("processedWidth").toDouble();
+
+        processResult.processedHeight = result.value("processedHeight").toDouble();
+
+        processResult.processedResolution = result.value("processedResolution").toDouble();
+
+        emit resolutionProcessed(processResult);
+
+        return;
+    }
 }
+
 void AdobePhotoshopBridge::handlePingTimeout()
 {
     if (m_pendingPingId.isEmpty())
-    {
-        m_inspectionTimeout.stop();
-
-        m_pendingInspectionId.clear();
-
-        emit imageInspectionFailed(tr("Se perdió la conexión con Adobe Photoshop."));
-    }
+        return;
 
     m_pendingPingId.clear();
 
@@ -278,11 +294,8 @@ void AdobePhotoshopBridge::inspectImage(const QString &path)
     QJsonObject request;
 
     request["version"] = 1;
-
     request["id"] = m_pendingInspectionId;
-
     request["command"] = QStringLiteral("inspectImage");
-
     request["path"] = path;
 
     const QString message = QString::fromUtf8(QJsonDocument(request).toJson(QJsonDocument::Compact));
@@ -290,4 +303,75 @@ void AdobePhotoshopBridge::inspectImage(const QString &path)
     m_transport->sendTextMessage(AdobeHost::Photoshop, message);
 
     m_inspectionTimeout.start();
+}
+
+void AdobePhotoshopBridge::processResolution(const QString &sourcePath, double scaleFactor)
+{
+    if (!m_transport)
+    {
+        emit resolutionProcessingFailed(tr("Adobe Bridge no está disponible."));
+
+        return;
+    }
+
+    if (!m_transport->hasClient(AdobeHost::Photoshop))
+    {
+        emit resolutionProcessingFailed(tr("Adobe Photoshop no está conectado."));
+
+        return;
+    }
+
+    if (!m_pendingProcessingId.isEmpty())
+    {
+        emit resolutionProcessingFailed(tr("Ya hay una imagen "
+                                           "procesándose en Photoshop."));
+
+        return;
+    }
+
+    if (sourcePath.isEmpty())
+    {
+        emit resolutionProcessingFailed(tr("La ruta del archivo está vacía."));
+
+        return;
+    }
+
+    if (scaleFactor <= 0.0 || scaleFactor >= 1.0)
+    {
+        emit resolutionProcessingFailed(tr("El factor de reducción "
+                                           "no es válido."));
+
+        return;
+    }
+
+    m_pendingProcessingId = QUuid::createUuid().toString(QUuid::WithoutBraces);
+
+    QJsonObject request;
+
+    request["version"] = 1;
+    request["id"] = m_pendingProcessingId;
+    request["command"] = QStringLiteral("processResolution");
+
+    request["path"] = sourcePath;
+
+    request["scaleFactor"] = scaleFactor;
+
+    const QString message = QString::fromUtf8(QJsonDocument(request).toJson(QJsonDocument::Compact));
+
+    m_transport->sendTextMessage(AdobeHost::Photoshop, message);
+
+    m_processingTimeout.start();
+}
+
+void AdobePhotoshopBridge::handleProcessingTimeout()
+{
+    if (m_pendingProcessingId.isEmpty())
+    {
+        return;
+    }
+
+    m_pendingProcessingId.clear();
+
+    emit resolutionProcessingFailed(tr("Adobe Photoshop no respondió "
+                                       "durante el procesamiento."));
 }

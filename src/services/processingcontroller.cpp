@@ -1,9 +1,13 @@
 #include "processingcontroller.h"
 
+#include "adobephotoshopbridge.h"
+#include "indesignbridge.h"
+
 #include <QFileInfo>
 #include <QHash>
 #include <QTimer>
 #include <QUuid>
+#include <QtGlobal>
 #include <limits>
 
 namespace
@@ -16,9 +20,7 @@ QString normalizedFilePath(const QString &path)
     const QString canonicalPath = fileInfo.canonicalFilePath();
 
     if (!canonicalPath.isEmpty())
-    {
         return canonicalPath;
-    }
 
     return fileInfo.absoluteFilePath();
 }
@@ -71,9 +73,7 @@ const ConversionRule *findConversionRule(const ConversionSettings &settings, Ima
     for (const ConversionRule &rule : settings.rules)
     {
         if (rule.sourceFormat == sourceFormat)
-        {
             return &rule;
-        }
     }
 
     return nullptr;
@@ -81,8 +81,26 @@ const ConversionRule *findConversionRule(const ConversionSettings &settings, Ima
 
 } // namespace
 
-ProcessingController::ProcessingController(QObject *parent) : QObject(parent)
+ProcessingController::ProcessingController(AdobePhotoshopBridge *photoshopBridge, InDesignBridge *indesignBridge,
+                                           QObject *parent)
+    : QObject(parent), m_photoshopBridge(photoshopBridge), m_indesignBridge(indesignBridge)
 {
+    if (m_photoshopBridge)
+    {
+        connect(m_photoshopBridge, &AdobePhotoshopBridge::resolutionProcessed, this,
+                &ProcessingController::handleResolutionProcessed);
+
+        connect(m_photoshopBridge, &AdobePhotoshopBridge::resolutionProcessingFailed, this,
+                &ProcessingController::handleResolutionProcessingFailed);
+    }
+
+    if (m_indesignBridge)
+    {
+        connect(m_indesignBridge, &InDesignBridge::linksUpdated, this, &ProcessingController::handleLinksUpdated);
+
+        connect(m_indesignBridge, &InDesignBridge::linksUpdateFailed, this,
+                &ProcessingController::handleLinksUpdateFailed);
+    }
 }
 
 QList<ProcessingJob> ProcessingController::createJobs(const QList<LinkInfo> &links,
@@ -322,6 +340,13 @@ QList<ProcessingJob> ProcessingController::createJobs(const QList<LinkInfo> &lin
 
 void ProcessingController::processJobs(const QList<ProcessingJob> &jobs)
 {
+    if (m_processing)
+    {
+        emit processingFailed(tr("Ya hay un procesamiento en curso."));
+
+        return;
+    }
+
     if (jobs.isEmpty())
     {
         emit processingCompleted();
@@ -329,8 +354,13 @@ void ProcessingController::processJobs(const QList<ProcessingJob> &jobs)
     }
 
     m_jobs = jobs;
+
     m_currentJobIndex = -1;
+
     m_cancelRequested = false;
+    m_processing = true;
+
+    m_currentOriginalSizeBytes = 0;
 
     emit processingStarted(m_jobs.size());
 
@@ -339,16 +369,24 @@ void ProcessingController::processJobs(const QList<ProcessingJob> &jobs)
 
 void ProcessingController::cancelProcessing()
 {
+    if (!m_processing)
+        return;
+
+    // Por ahora no podemos interrumpir a Photoshop en mitad de un executeAsModal.
+    //
+    // El job actualmente activo terminará y los restantes serán omitidos.
+
     m_cancelRequested = true;
 }
 
 void ProcessingController::processNextJob()
 {
+    // ========================================================
+    // CANCELACIÓN
+    // ========================================================
+
     if (m_cancelRequested)
     {
-
-        // Marcamos como omitidos los trabajos que todavía no comenzaron.
-
         for (int index = m_currentJobIndex + 1; index < m_jobs.size(); ++index)
         {
             ProcessingJob &job = m_jobs[index];
@@ -381,41 +419,55 @@ void ProcessingController::processNextJob()
             emit jobCompleted(result);
         }
 
+        m_processing = false;
+
         emit processingCompleted();
+
         return;
     }
+
+    // ========================================================
+    // SIGUIENTE JOB
+    // ========================================================
 
     ++m_currentJobIndex;
 
     if (m_currentJobIndex >= m_jobs.size())
     {
+        m_processing = false;
+
         emit processingCompleted();
+
         return;
     }
 
     ProcessingJob &job = m_jobs[m_currentJobIndex];
 
-    job.state = ProcessingJobState::Processing;
-
-    emit jobStarted(job);
-
-    // Simulación temporal.
     //
-    // Más adelante este bloque será reemplazado por PhotoshopBridge.
+    // ========================================================
+    // OPERACIONES IMPLEMENTADAS
+    // ========================================================
+    //
+    // En este momento Photoshop solamente implementa reducción de resolución.
+    //
 
-    QTimer::singleShot(800, this, [this]() {
-        if (m_currentJobIndex < 0 || m_currentJobIndex >= m_jobs.size())
-            return;
+    if (!job.resizeRequired)
+    {
+        job.state = ProcessingJobState::Skipped;
 
-        ProcessingJob &job = m_jobs[m_currentJobIndex];
+        job.statusMessage = tr("No requiere reducción de resolución.");
 
         ProcessingResult result;
 
         result.jobId = job.id;
 
+        result.state = ProcessingJobState::Skipped;
+
         result.sourcePath = job.sourcePath;
 
         result.outputPath = job.outputPath;
+
+        result.message = job.statusMessage;
 
         const QFileInfo fileInfo(job.sourcePath);
 
@@ -423,35 +475,239 @@ void ProcessingController::processNextJob()
         {
             result.originalSizeBytes = fileInfo.size();
 
-            // Simulamos una reducción del 30 %.
-            result.processedSizeBytes = static_cast<qint64>(fileInfo.size() * 0.70);
-        }
-
-        if (m_cancelRequested)
-        {
-
-            job.state = ProcessingJobState::Skipped;
-
-            job.statusMessage = tr("Cancelado por el usuario");
-
-            result.state = ProcessingJobState::Skipped;
-
-            result.message = job.statusMessage;
-        }
-        else
-        {
-
-            job.state = ProcessingJobState::Completed;
-
-            job.statusMessage = tr("Procesamiento simulado");
-
-            result.state = ProcessingJobState::Completed;
-
-            result.message = job.statusMessage;
+            result.processedSizeBytes = fileInfo.size();
         }
 
         emit jobCompleted(result);
 
-        processNextJob();
-    });
+        // Evitamos encadenar llamadas recursivas si hay muchos jobs omitidos.
+
+        QTimer::singleShot(0, this, &ProcessingController::processNextJob);
+
+        return;
+    }
+
+    // ========================================================
+    // PHOTOSHOP DISPONIBLE
+    // ========================================================
+
+    if (!m_photoshopBridge || !m_photoshopBridge->isConnected())
+    {
+        finishCurrentJob(ProcessingJobState::Failed, tr("Adobe Photoshop no está conectado."));
+
+        return;
+    }
+
+    // ========================================================
+    // FACTOR DE REDUCCIÓN
+    // ========================================================
+
+    const double scaleFactor = scaleFactorForJob(job);
+
+    if (scaleFactor <= 0.0 || scaleFactor >= 1.0)
+    {
+        finishCurrentJob(ProcessingJobState::Failed, tr("No se pudo calcular un factor de reducción válido."));
+
+        return;
+    }
+
+    //
+    // ========================================================
+    // COMENZAR JOB REAL
+    // ========================================================
+    //
+
+    const QFileInfo fileInfo(job.sourcePath);
+
+    m_currentOriginalSizeBytes = (fileInfo.exists() && fileInfo.isFile()) ? fileInfo.size() : 0;
+
+    job.state = ProcessingJobState::Processing;
+
+    job.statusMessage = tr("Procesando en Photoshop");
+
+    emit jobStarted(job);
+
+    m_photoshopBridge->processResolution(job.sourcePath, scaleFactor);
+}
+
+double ProcessingController::scaleFactorForJob(const ProcessingJob &job) const
+{
+    if (job.targetResolution <= 0.0 || job.minimumEffectiveResolutionX <= 0.0 || job.minimumEffectiveResolutionY <= 0.0)
+        return 0.0;
+
+    const double factorX = job.targetResolution / job.minimumEffectiveResolutionX;
+
+    const double factorY = job.targetResolution / job.minimumEffectiveResolutionY;
+
+    // Elegimos el factor mayor para garantizar que ninguna dimensión de
+    // ninguna colocación quede por debajo del target.
+
+    return qMax(factorX, factorY);
+}
+
+void ProcessingController::handleResolutionProcessed(const PhotoshopProcessResult &result)
+{
+    Q_UNUSED(result);
+
+    if (!m_processing || m_currentJobIndex < 0 || m_currentJobIndex >= m_jobs.size())
+    {
+        return;
+    }
+
+    ProcessingJob &job = m_jobs[m_currentJobIndex];
+
+    // Photoshop terminó. Ahora InDesign debe releer todas las colocaciones
+    // correspondientes al archivo.
+
+    if (!m_indesignBridge)
+    {
+        finishCurrentJob(ProcessingJobState::Failed, tr("El bridge de InDesign no está disponible."));
+
+        return;
+    }
+
+    QList<qint64> linkIds;
+
+    for (const ImageUsage &usage : job.usages)
+    {
+        if (usage.indesignLinkId > 0 && !linkIds.contains(usage.indesignLinkId))
+        {
+            linkIds.append(usage.indesignLinkId);
+        }
+    }
+
+    if (linkIds.isEmpty())
+    {
+        finishCurrentJob(ProcessingJobState::Failed, tr("No se encontraron vínculos de InDesign para actualizar."));
+
+        return;
+    }
+
+    job.statusMessage = tr("Actualizando vínculos en InDesign");
+
+    m_indesignBridge->updateLinks(linkIds);
+}
+
+void ProcessingController::handleResolutionProcessingFailed(const QString &message)
+{
+    if (!m_processing || m_currentJobIndex < 0 || m_currentJobIndex >= m_jobs.size())
+    {
+        return;
+    }
+
+    finishCurrentJob(ProcessingJobState::Failed, message);
+}
+
+void ProcessingController::finishCurrentJob(ProcessingJobState state, const QString &message)
+{
+    if (m_currentJobIndex < 0 || m_currentJobIndex >= m_jobs.size())
+    {
+        return;
+    }
+
+    ProcessingJob &job = m_jobs[m_currentJobIndex];
+
+    job.state = state;
+
+    job.statusMessage = message;
+
+    ProcessingResult result;
+
+    result.jobId = job.id;
+
+    result.state = state;
+
+    result.sourcePath = job.sourcePath;
+
+    result.outputPath = job.outputPath;
+
+    result.originalSizeBytes = m_currentOriginalSizeBytes;
+
+    const QFileInfo fileInfo(job.outputPath);
+
+    if (fileInfo.exists() && fileInfo.isFile())
+    {
+        result.processedSizeBytes = fileInfo.size();
+
+        if (result.originalSizeBytes == 0)
+        {
+            result.originalSizeBytes = fileInfo.size();
+        }
+    }
+
+    result.message = message;
+
+    emit jobCompleted(result);
+
+    m_currentOriginalSizeBytes = 0;
+
+    QTimer::singleShot(0, this, &ProcessingController::processNextJob);
+}
+
+void ProcessingController::handleLinksUpdated(int updatedCount)
+{
+    qDebug() << "ProcessingController recibió linksUpdated:" << updatedCount;
+
+    if (!m_processing || m_currentJobIndex < 0 || m_currentJobIndex >= m_jobs.size())
+        return;
+
+    const ProcessingJob &job = m_jobs[m_currentJobIndex];
+
+    const int expectedCount = job.usages.size();
+
+    qDebug() << "Links actualizados:" << updatedCount << "de" << expectedCount;
+
+    if (updatedCount <= 0)
+    {
+        finishCurrentJob(ProcessingJobState::Failed, tr("InDesign no pudo actualizar ninguna colocación del archivo."));
+
+        return;
+    }
+
+    completeCurrentJob();
+}
+
+void ProcessingController::handleLinksUpdateFailed(const QString &message)
+{
+    if (!m_processing || m_currentJobIndex < 0 || m_currentJobIndex >= m_jobs.size())
+        return;
+
+    finishCurrentJob(ProcessingJobState::Failed, message);
+}
+
+void ProcessingController::completeCurrentJob()
+{
+    if (m_currentJobIndex < 0 || m_currentJobIndex >= m_jobs.size())
+        return;
+
+    ProcessingJob &job = m_jobs[m_currentJobIndex];
+
+    job.state = ProcessingJobState::Completed;
+
+    job.statusMessage = tr("Optimizado y actualizado en InDesign");
+
+    ProcessingResult result;
+
+    result.jobId = job.id;
+
+    result.state = ProcessingJobState::Completed;
+
+    result.sourcePath = job.sourcePath;
+
+    result.outputPath = job.outputPath;
+
+    result.originalSizeBytes = m_currentOriginalSizeBytes;
+
+    const QFileInfo processedInfo(job.outputPath);
+
+    if (processedInfo.exists() && processedInfo.isFile())
+        result.processedSizeBytes = processedInfo.size();
+
+    result.message = job.statusMessage;
+
+    emit jobCompleted(result);
+
+    m_currentOriginalSizeBytes = 0;
+
+    QTimer::singleShot(0, this, &ProcessingController::processNextJob);
 }

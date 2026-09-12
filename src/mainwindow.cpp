@@ -20,11 +20,15 @@
 #include <QStackedWidget>
 #include <QStatusBar>
 #include <QString>
+#include <QtGlobal>
 
 MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 {
-    constexpr int winWidth{1200}, winHeight{760};
-    constexpr int minWinWidth{900}, minWinHeight{600};
+    constexpr int winWidth = 1200;
+    constexpr int winHeight = 760;
+
+    constexpr int minWinWidth = 900;
+    constexpr int minWinHeight = 600;
 
     const QString appName = QStringLiteral("LinksFlow");
 
@@ -39,17 +43,14 @@ MainWindow::MainWindow(QWidget *parent) : QMainWindow(parent)
 
 MainWindow::~MainWindow()
 {
-    // Evitamos señales tardías durante la destrucción de MainWindow.
-
     if (m_adobeTransport)
         disconnect(m_adobeTransport, nullptr, this, nullptr);
-
-    // Destruimos primero el consumidor del transporte.
 
     delete m_indesignBridge;
     m_indesignBridge = nullptr;
 
-    // Cerramos y destruimos el transporte mientras MainWindow todavía existe.
+    delete m_photoshopBridge;
+    m_photoshopBridge = nullptr;
 
     if (m_adobeTransport)
     {
@@ -65,74 +66,129 @@ MainWindow::~MainWindow()
 
 void MainWindow::createInterface()
 {
+    // ========================================================
+    // CONTENEDOR PRINCIPAL
+    // ========================================================
+
     m_pages = new QStackedWidget(this);
+
+    // ========================================================
+    // ADOBE BRIDGE
+    // ========================================================
 
     m_adobeTransport = new AdobeBridgeTransport(this);
 
     m_indesignBridge = new AdobeInDesignBridge(m_adobeTransport, this);
+
     m_photoshopBridge = new AdobePhotoshopBridge(m_adobeTransport, this);
 
+    // ========================================================
+    // STATUS BAR
+    // ========================================================
+
     m_indesignConnectionLabel = new QLabel(this);
+
     m_photoshopConnectionLabel = new QLabel(this);
 
     statusBar()->addPermanentWidget(m_indesignConnectionLabel);
+
     statusBar()->addPermanentWidget(m_photoshopConnectionLabel);
 
-    // Connection Changeged
-
+    // Cambio de conexión Adobe
     connect(m_adobeTransport, &AdobeBridgeTransport::connectionChanged, this, [this](AdobeHost host, bool connected) {
         switch (host)
         {
-
         case AdobeHost::InDesign:
+
             updateInDesignConnectionState(connected);
+
             break;
+
         case AdobeHost::Photoshop:
+
             updatePhotoshopConnectionState(connected);
+
             if (connected && m_photoshopBridge)
                 m_photoshopBridge->ping();
+
             break;
+
         case AdobeHost::Unknown:
             break;
         }
     });
 
-    // Iniciar servidor WebSocket
+    // ========================================================
+    // INICIAR WEBSOCKET SERVER
+    // ========================================================
     if (!m_adobeTransport->start(17321))
+    {
         qWarning() << "No se pudo iniciar Adobe Bridge";
+    }
 
+    // Estado inicial
     updateInDesignConnectionState(m_adobeTransport->hasClient(AdobeHost::InDesign));
+
     updatePhotoshopConnectionState(m_adobeTransport->hasClient(AdobeHost::Photoshop));
 
-    m_processingController = new ProcessingController(this);
+    // ========================================================
+    // SERVICIOS
+    // ========================================================
 
-    // Páginas
+    m_processingController = new ProcessingController(m_photoshopBridge, m_indesignBridge, this);
+    m_backupService = new BackupService(this);
+
+    // ========================================================
+    // PÁGINAS
+    // ========================================================
+
     m_configurationPage = new ConfigurationPage(m_pages);
-
-    m_pages->addWidget(m_configurationPage);
-
     m_analysisPage = new AnalysisPage(m_pages);
 
+    m_pages->addWidget(m_configurationPage);
     m_pages->addWidget(m_analysisPage);
 
     setCentralWidget(m_pages);
 
-    // Configuración → salir
+    // ========================================================
+    // CONFIGURACIÓN
+    // ========================================================
+
+    // Salir
     connect(m_configurationPage, &ConfigurationPage::exitRequested, qApp, &QApplication::quit);
-
-    // Análisis → volver
-    connect(m_analysisPage, &AnalysisPage::backRequested, this,
-            [this]() { m_pages->setCurrentWidget(m_configurationPage); });
-
-    // Análisis → salir
-    connect(m_analysisPage, &AnalysisPage::exitRequested, qApp, &QApplication::quit);
 
     // Solicitar análisis a InDesign
     connect(m_configurationPage, &ConfigurationPage::analyzeDocumentRequested, this,
             [this]() { m_indesignBridge->analyzeActiveDocument(); });
 
-    // Procesamiento
+    // ========================================================
+    // ANALYSIS PAGE
+    // ========================================================
+
+    // Volver
+    connect(m_analysisPage, &AnalysisPage::backRequested, this,
+            [this]() { m_pages->setCurrentWidget(m_configurationPage); });
+
+    // Salir
+    connect(m_analysisPage, &AnalysisPage::exitRequested, qApp, &QApplication::quit);
+
+    // ========================================================
+    // PROCESAR
+    // ========================================================
+    //
+    // IMPORTANTE:
+    //
+    // Esta es todavía una fase de prueba.
+    //
+    // Se procesa solamente UNA imagen real mediante Photoshop.
+    //
+    // ProcessingController::processJobs() NO se llama todavía.
+    //
+    // ========================================================
+    //
+
     connect(m_analysisPage, &AnalysisPage::processRequested, this, [this]() {
+        // Crear jobs según selección y configuración actual.
         const QList<LinkInfo> links = m_analysisPage->links();
 
         const OptimizationSettings settings = m_configurationPage->currentSettings();
@@ -141,11 +197,15 @@ void MainWindow::createInterface()
 
         if (jobs.isEmpty())
         {
+            QMessageBox::information(this, tr("Procesamiento"), tr("No hay archivos seleccionados para procesar."));
+
             return;
         }
 
         //
-        // Preguntar si se desea crear backup.
+        // =================================================
+        // PREGUNTAR POR BACKUP
+        // =================================================
         //
 
         QMessageBox backupQuestion(this);
@@ -156,9 +216,8 @@ void MainWindow::createInterface()
 
         backupQuestion.setText(tr("LinksFlow va a procesar %1 archivo(s).").arg(jobs.size()));
 
-        backupQuestion.setInformativeText(tr("¿Quieres crear una copia de seguridad "
-                                             "de los archivos originales antes de "
-                                             "procesarlos?"));
+        backupQuestion.setInformativeText(
+            tr("¿Quieres crear una copia de seguridad de los archivos originales antes de procesarlos?"));
 
         QPushButton *backupButton = backupQuestion.addButton(tr("Crear copia"), QMessageBox::AcceptRole);
 
@@ -172,28 +231,31 @@ void MainWindow::createInterface()
 
         QAbstractButton *clickedButton = backupQuestion.clickedButton();
 
-        //
-        // Cancelar.
-        //
+        // Cancelar
+        if (clickedButton == cancelButton)
+            return;
 
-        if (clickedButton == static_cast<QAbstractButton *>(cancelButton))
+        bool backupCreated = false;
+
+        if (!m_photoshopBridge || !m_photoshopBridge->isConnected())
         {
+            QMessageBox::critical(this, tr("Photoshop no disponible"),
+                                  tr("LinksFlow no está conectado con Adobe Photoshop."));
+
             return;
         }
 
-        //
-        // Crear copia de seguridad.
-        //
+        // =================================================
+        // CREAR BACKUP
+        // =================================================
 
-        if (clickedButton == static_cast<QAbstractButton *>(backupButton))
+        if (clickedButton == backupButton)
         {
             if (m_currentDocument.path.isEmpty())
             {
                 QMessageBox::critical(this, tr("Copia de seguridad"),
-                                      tr("No se puede crear la copia de "
-                                         "seguridad porque no se conoce "
-                                         "la ubicación del documento "
-                                         "de InDesign."));
+                                      tr("No se puede crear la copia de seguridad porque no se "
+                                         "conoce la ubicación del documento de InDesign."));
 
                 return;
             }
@@ -202,19 +264,13 @@ void MainWindow::createInterface()
 
             if (!backupResult.success)
             {
+                QMessageBox::critical(this, tr("Error al crear la copia de seguridad"), backupResult.errorMessage);
 
-                QMessageBox::critical(this,
-                                      tr("Error al crear la copia "
-                                         "de seguridad"),
-                                      backupResult.errorMessage);
-
-                //
-                // Si el usuario pidió backup
-                // y este falla, no procesamos.
-                //
-
+                // El usuario pidió backup, por tanto NO procesamos si falla.
                 return;
             }
+
+            backupCreated = true;
 
             QMessageBox::information(this, tr("Copia de seguridad creada"),
                                      tr("Se copiaron %1 archivo(s) en:\n\n%2")
@@ -222,20 +278,10 @@ void MainWindow::createInterface()
                                          .arg(backupResult.backupDirectory));
         }
 
-        //
-        // Si no pulsó ni "Crear copia"
-        // ni "Sin copia", no continuar.
-        //
+        // Si no fue ninguna de las opciones válidas, no continuar.
 
-        if (clickedButton != static_cast<QAbstractButton *>(backupButton) &&
-            clickedButton != static_cast<QAbstractButton *>(withoutBackupButton))
-        {
+        if (clickedButton != backupButton && clickedButton != withoutBackupButton)
             return;
-        }
-
-        //
-        // Crear modal de procesamiento.
-        //
 
         auto *dialog = new ProcessingDialog(this);
 
@@ -257,40 +303,53 @@ void MainWindow::createInterface()
 
         m_processingController->processJobs(jobs);
     });
-    // Resultado de análisis
+
+    //
+    // ========================================================
+    // RESULTADO DEL ANÁLISIS DE INDESIGN
+    // ========================================================
+    //
+
     connect(m_indesignBridge, &InDesignBridge::analysisCompleted, this, [this](const InDesignDocumentInfo &document) {
         m_currentDocument = document;
-
         m_analysisPage->setLinks(document.links);
-        for (const LinkInfo &link : document.links)
-            m_pages->setCurrentWidget(m_analysisPage);
-
-        qDebug() << "Documento InDesign:" << document.name;
-
-        qDebug() << "Ruta documento:" << document.path;
+        m_pages->setCurrentWidget(m_analysisPage);
     });
 
+    //
     // Error de análisis
+    //
+
     connect(m_indesignBridge, &InDesignBridge::analysisFailed, this,
             [this](const QString &message) { QMessageBox::critical(this, tr("Error de análisis"), message); });
 
-    // Diagnóstico de conexiones Adobe
+    //
+    // ========================================================
+    // DIAGNÓSTICO DE CONEXIONES ADOBE
+    // ========================================================
+    //
+
     connect(m_adobeTransport, &AdobeBridgeTransport::clientConnected, this, [](AdobeHost host) {
         QString hostName;
 
         switch (host)
         {
-
         case AdobeHost::InDesign:
+
             hostName = QStringLiteral("InDesign");
+
             break;
 
         case AdobeHost::Photoshop:
+
             hostName = QStringLiteral("Photoshop");
+
             break;
 
         case AdobeHost::Unknown:
+
             hostName = QStringLiteral("Unknown");
+
             break;
         }
 
@@ -302,17 +361,22 @@ void MainWindow::createInterface()
 
         switch (host)
         {
-
         case AdobeHost::InDesign:
+
             hostName = QStringLiteral("InDesign");
+
             break;
 
         case AdobeHost::Photoshop:
+
             hostName = QStringLiteral("Photoshop");
+
             break;
 
         case AdobeHost::Unknown:
+
             hostName = QStringLiteral("Unknown");
+
             break;
         }
 
@@ -325,29 +389,45 @@ void MainWindow::createInterface()
 
                 switch (host)
                 {
-
                 case AdobeHost::InDesign:
+
                     hostName = QStringLiteral("InDesign");
+
                     break;
 
                 case AdobeHost::Photoshop:
+
                     hostName = QStringLiteral("Photoshop");
+
                     break;
 
                 case AdobeHost::Unknown:
+
                     hostName = QStringLiteral("Unknown");
+
                     break;
                 }
 
                 qDebug() << "Mensaje Adobe" << hostName << ":" << message;
             });
 
-    // Photoshop PingPong
+    //
+    // ========================================================
+    // PHOTOSHOP PING
+    // ========================================================
+    //
+
     connect(m_photoshopBridge, &AdobePhotoshopBridge::pingSucceeded, this,
             []() { qDebug() << "Photoshop ping: pong"; });
 
     connect(m_photoshopBridge, &AdobePhotoshopBridge::pingFailed, this,
             [](const QString &message) { qWarning() << "Photoshop ping error:" << message; });
+
+    //
+    // ========================================================
+    // PHOTOSHOP INSPECT
+    // ========================================================
+    //
 
     connect(m_photoshopBridge, &AdobePhotoshopBridge::imageInspected, this, [](const PhotoshopImageInfo &info) {
         qDebug() << "Photoshop inspect:" << info.name << info.width << "x" << info.height << "@" << info.resolution
@@ -357,47 +437,105 @@ void MainWindow::createInterface()
 
     connect(m_photoshopBridge, &AdobePhotoshopBridge::imageInspectionFailed, this,
             [](const QString &message) { qWarning() << "Photoshop inspect error:" << message; });
+
+    //
+    // ========================================================
+    // PHOTOSHOP RESOLUTION PROCESSING
+    // ========================================================
+    //
+
+    connect(m_photoshopBridge, &AdobePhotoshopBridge::resolutionProcessed, this,
+            [this](const PhotoshopProcessResult &result) {
+                qDebug() << "Photoshop resize:" << result.originalWidth << "x" << result.originalHeight << "@"
+                         << result.originalResolution << "ppi"
+                         << "->" << result.processedWidth << "x" << result.processedHeight << "@"
+                         << result.processedResolution << "ppi";
+
+                QMessageBox::information(this, tr("Prueba completada"),
+                                         tr("Photoshop procesó correctamente "
+                                            "la imagen."
+                                            "\n\n"
+                                            "Original:"
+                                            "\n"
+                                            "%1 × %2 px @ %3 ppi"
+                                            "\n\n"
+                                            "Resultado:"
+                                            "\n"
+                                            "%4 × %5 px @ %6 ppi")
+                                             .arg(result.originalWidth, 0, 'f', 0)
+                                             .arg(result.originalHeight, 0, 'f', 0)
+                                             .arg(result.originalResolution, 0, 'f', 2)
+                                             .arg(result.processedWidth, 0, 'f', 0)
+                                             .arg(result.processedHeight, 0, 'f', 0)
+                                             .arg(result.processedResolution, 0, 'f', 2));
+            });
+
+    connect(m_photoshopBridge, &AdobePhotoshopBridge::resolutionProcessingFailed, this, [this](const QString &message) {
+        qWarning() << "Photoshop resize error:" << message;
+
+        QMessageBox::critical(this, tr("Error de Photoshop"), message);
+    });
+    connect(m_indesignBridge, &InDesignBridge::linksUpdated, this,
+            [](int count) { qDebug() << "Links actualizados en InDesign:" << count; });
+
+    connect(m_indesignBridge, &InDesignBridge::linksUpdateFailed, this,
+            [](const QString &message) { qWarning() << "Error actualizando links:" << message; });
 }
 
 void MainWindow::updateInDesignConnectionState(bool connected)
 {
     if (!m_indesignConnectionLabel)
+    {
         return;
+    }
 
     if (connected)
     {
-        m_indesignConnectionLabel->setText(
-            QStringLiteral("<span style=\"color:#34C759;\">●</span> InDesign conectado"));
+        m_indesignConnectionLabel->setText(QStringLiteral("<span style=\"color:#34C759;\">"
+                                                          "●"
+                                                          "</span> "
+                                                          "InDesign conectado"));
 
-        m_indesignConnectionLabel->setToolTip(QStringLiteral("LinksFlow está conectado con Adobe InDesign."));
+        m_indesignConnectionLabel->setToolTip(QStringLiteral("LinksFlow está conectado "
+                                                             "con Adobe InDesign."));
     }
     else
     {
+        m_indesignConnectionLabel->setText(QStringLiteral("<span style=\"color:#FF3B30;\">"
+                                                          "●"
+                                                          "</span> "
+                                                          "InDesign desconectado"));
 
-        m_indesignConnectionLabel->setText(
-            QStringLiteral("<span style=\"color:#FF3B30;\">● </span> InDesign desconectado"));
-
-        m_indesignConnectionLabel->setToolTip(QStringLiteral("LinksFlow no está conectado con Adobe InDesign."));
+        m_indesignConnectionLabel->setToolTip(QStringLiteral("LinksFlow no está conectado "
+                                                             "con Adobe InDesign."));
     }
 }
 
 void MainWindow::updatePhotoshopConnectionState(bool connected)
 {
     if (!m_photoshopConnectionLabel)
+    {
         return;
+    }
 
     if (connected)
     {
+        m_photoshopConnectionLabel->setText(QStringLiteral("<span style=\"color:#34C759;\">"
+                                                           "●"
+                                                           "</span> "
+                                                           "Photoshop conectado"));
 
-        m_photoshopConnectionLabel->setText(
-            QStringLiteral("<span style=\"color:#34C759;\"> ●</span> Photoshop conectado"));
-        m_photoshopConnectionLabel->setToolTip(QStringLiteral("LinksFlow está conectado con Adobe Photoshop."));
+        m_photoshopConnectionLabel->setToolTip(QStringLiteral("LinksFlow está conectado "
+                                                              "con Adobe Photoshop."));
     }
     else
     {
+        m_photoshopConnectionLabel->setText(QStringLiteral("<span style=\"color:#FF3B30;\">"
+                                                           "●"
+                                                           "</span> "
+                                                           "Photoshop desconectado"));
 
-        m_photoshopConnectionLabel->setText(
-            QStringLiteral("<span style=\"color:#FF3B30;\"> ● </span> Photoshop desconectado"));
-        m_photoshopConnectionLabel->setToolTip(QStringLiteral("LinksFlow no está conectado con Adobe Photoshop."));
+        m_photoshopConnectionLabel->setToolTip(QStringLiteral("LinksFlow no está conectado "
+                                                              "con Adobe Photoshop."));
     }
 }

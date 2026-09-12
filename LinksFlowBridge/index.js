@@ -837,6 +837,35 @@ async function handleMessage(message) {
   }
 
   if (
+    request.command === "updateLinks"
+  ) {
+    try {
+      const result =
+        await updateLinks(
+          request.linkIds || []
+        );
+
+      sendJson({
+        version: 1,
+        id: request.id || "",
+        success: true,
+        result
+      });
+
+    } catch (error) {
+      sendJson({
+        version: 1,
+        id: request.id || "",
+        success: false,
+        error:
+          error && error.message ? error.message : String(error)
+      });
+    }
+
+    return;
+  }
+
+  if (
     request.command ===
     "analyzeDocument"
   ) {
@@ -988,3 +1017,198 @@ entrypoints.setup({
     }
   }
 });
+
+async function updateLinks(linkIds) {
+  if (
+    !Array.isArray(linkIds) ||
+    linkIds.length === 0
+  ) {
+    return {
+      updated: 0,
+      requested: 0,
+      details: []
+    };
+  }
+
+  if (
+    !app ||
+    !app.documents ||
+    app.documents.length === 0
+  ) {
+    throw new Error(
+      "No hay ningún documento abierto."
+    );
+  }
+
+  const document =
+    app.activeDocument;
+
+  const details = [];
+
+  let updated = 0;
+
+  for (const linkId of linkIds) {
+    let link = null;
+
+    try {
+      link =
+        document.links.itemByID(
+          Number(linkId)
+        );
+    } catch (error) {
+      details.push({
+        linkId,
+        success: false,
+        reason: "link-not-found"
+      });
+
+      continue;
+    }
+
+    if (!link) {
+      details.push({
+        linkId,
+        success: false,
+        reason: "link-not-found"
+      });
+
+      continue;
+    }
+
+    //
+    // --------------------------------------------------------
+    // Esperar a que InDesign detecte que Photoshop
+    // modificó el archivo.
+    //
+    // Normalmente ocurre muy rápido, pero no necesariamente
+    // antes de recibir nuestro comando WebSocket.
+    // --------------------------------------------------------
+    //
+
+    let status = "";
+
+    const maxAttempts = 20;
+    const delayMs = 100;
+
+    for (
+      let attempt = 0;
+      attempt < maxAttempts;
+      ++attempt
+    ) {
+      status =
+        safeValue(
+          () => String(link.status),
+          ""
+        );
+
+      if (
+        status ===
+        "LINK_OUT_OF_DATE"
+      ) {
+        break;
+      }
+
+      await delay(delayMs);
+    }
+
+    //
+    // Leer nuevamente el estado justo antes
+    // de hacer update().
+    //
+
+    status =
+      safeValue(
+        () => String(link.status),
+        ""
+      );
+
+    //
+    // Si está desactualizado, actualizarlo.
+    //
+
+    if (
+      status ===
+      "LINK_OUT_OF_DATE"
+    ) {
+      try {
+        link.update();
+
+        ++updated;
+
+        details.push({
+          linkId,
+          success: true,
+          statusBefore:
+            status,
+          statusAfter:
+            safeValue(
+              () =>
+                String(link.status),
+              ""
+            )
+        });
+
+      } catch (error) {
+        details.push({
+          linkId,
+          success: false,
+          statusBefore:
+            status,
+          error:
+            error &&
+              error.message
+              ? error.message
+              : String(error)
+        });
+      }
+
+      continue;
+    }
+
+    //
+    // Si ya está NORMAL, InDesign pudo haber
+    // actualizado el vínculo automáticamente.
+    //
+
+    if (
+      status === "NORMAL"
+    ) {
+      ++updated;
+
+      details.push({
+        linkId,
+        success: true,
+        statusBefore:
+          status,
+        statusAfter:
+          status,
+        reason:
+          "already-normal"
+      });
+
+      continue;
+    }
+
+    //
+    // Estado inesperado.
+    //
+
+    details.push({
+      linkId,
+      success: false,
+      statusBefore:
+        status,
+      reason:
+        "unexpected-status"
+    });
+  }
+
+  return {
+    requested:
+      linkIds.length,
+
+    updated,
+
+    details
+  };
+}

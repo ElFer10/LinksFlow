@@ -19,6 +19,7 @@ class InDesignBridge : public QObject
     ~InDesignBridge() override = default;
 
     virtual void analyzeActiveDocument() = 0;
+    virtual void updateLinks(const QList<qint64> &linkIds) = 0;
 
   signals:
     void analysisStarted();
@@ -26,4 +27,6 @@ class InDesignBridge : public QObject
     void analysisCompleted(const InDesignDocumentInfo &document);
 
     void analysisFailed(const QString &message);
+    void linksUpdated(int updatedCount);
+    void linksUpdateFailed(const QString &message);
 };
