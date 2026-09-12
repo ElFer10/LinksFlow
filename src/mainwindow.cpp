@@ -274,10 +274,10 @@ void MainWindow::createInterface()
 
             backupCreated = true;
 
-            QMessageBox::information(this, tr("Copia de seguridad creada"),
-                                     tr("Se copiaron %1 archivo(s) en:\n\n%2")
-                                         .arg(backupResult.copiedFiles)
-                                         .arg(backupResult.backupDirectory));
+            // QMessageBox::information(this, tr("Copia de seguridad creada"),
+            //                          tr("Se copiaron %1 archivo(s) en:\n\n%2")
+            //                              .arg(backupResult.copiedFiles)
+            //                              .arg(backupResult.backupDirectory));
         }
 
         // Si no fue ninguna de las opciones válidas, no continuar.
@@ -453,23 +453,23 @@ void MainWindow::createInterface()
                          << "->" << result.processedWidth << "x" << result.processedHeight << "@"
                          << result.processedResolution << "ppi";
 
-                QMessageBox::information(this, tr("Prueba completada"),
-                                         tr("Photoshop procesó correctamente "
-                                            "la imagen."
-                                            "\n\n"
-                                            "Original:"
-                                            "\n"
-                                            "%1 × %2 px @ %3 ppi"
-                                            "\n\n"
-                                            "Resultado:"
-                                            "\n"
-                                            "%4 × %5 px @ %6 ppi")
-                                             .arg(result.originalWidth, 0, 'f', 0)
-                                             .arg(result.originalHeight, 0, 'f', 0)
-                                             .arg(result.originalResolution, 0, 'f', 2)
-                                             .arg(result.processedWidth, 0, 'f', 0)
-                                             .arg(result.processedHeight, 0, 'f', 0)
-                                             .arg(result.processedResolution, 0, 'f', 2));
+                // QMessageBox::information(this, tr("Prueba completada"),
+                //                          tr("Photoshop procesó correctamente "
+                //                             "la imagen."
+                //                             "\n\n"
+                //                             "Original:"
+                //                             "\n"
+                //                             "%1 × %2 px @ %3 ppi"
+                //                             "\n\n"
+                //                             "Resultado:"
+                //                             "\n"
+                //                             "%4 × %5 px @ %6 ppi")
+                //                              .arg(result.originalWidth, 0, 'f', 0)
+                //                              .arg(result.originalHeight, 0, 'f', 0)
+                //                              .arg(result.originalResolution, 0, 'f', 2)
+                //                              .arg(result.processedWidth, 0, 'f', 0)
+                //                              .arg(result.processedHeight, 0, 'f', 0)
+                //                              .arg(result.processedResolution, 0, 'f', 2));
             });
 
     connect(m_photoshopBridge, &AdobePhotoshopBridge::resolutionProcessingFailed, this, [this](const QString &message) {
@@ -489,9 +489,7 @@ void MainWindow::createInterface()
 void MainWindow::updateInDesignConnectionState(bool connected)
 {
     if (!m_indesignConnectionLabel)
-    {
         return;
-    }
 
     if (connected)
     {
@@ -518,9 +516,7 @@ void MainWindow::updateInDesignConnectionState(bool connected)
 void MainWindow::updatePhotoshopConnectionState(bool connected)
 {
     if (!m_photoshopConnectionLabel)
-    {
         return;
-    }
 
     if (connected)
     {
