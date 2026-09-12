@@ -11,6 +11,28 @@ const NS_PHOTOSHOP = "http://ns.adobe.com/photoshop/1.0/";
 
 const RECONNECT_DELAY_MS = 2000;
 
+// ============================================================
+// Utilidad de Resolución de Links
+// ============================================================
+
+function effectiveResolutionForLink(link) {
+  if (!link) {
+    return {
+      x: 0,
+      y: 0
+    };
+  }
+
+  const parent = safeValue(() => link.parent, null);
+
+  if (!parent) {
+    return { x: 0, y: 0 };
+  }
+
+  return resolutionObject(
+    safeValue(() => parent.effectivePpi, null)
+  );
+}
 
 // ============================================================
 // Utilidades de ruta
@@ -21,17 +43,12 @@ async function resolveDocumentPath(document) {
     return "";
 
   try {
-    const fullName =
-      await document.fullName;
+    const fullName = await document.fullName;
 
-    if (fullName && fullName.nativePath) {
+    if (fullName && fullName.nativePath)
       return String(fullName.nativePath);
-    }
   } catch (error) {
-    console.log(
-      "Error obteniendo document.fullName:",
-      error
-    );
+    console.log("Error obteniendo document.fullName:", error);
   }
 
   return "";
@@ -42,22 +59,19 @@ async function resolveDocumentPath(document) {
 // ============================================================
 
 function scheduleReconnect() {
-  if (shuttingDown) {
+  if (shuttingDown)
     return;
-  }
 
-  if (reconnectTimer) {
+  if (reconnectTimer)
     return;
-  }
 
-  reconnectTimer = setTimeout(
-    () => {
-      reconnectTimer = null;
+  reconnectTimer = setTimeout(() => {
 
-      if (!shuttingDown) {
-        connectToLinksFlow();
-      }
-    },
+    reconnectTimer = null;
+
+    if (!shuttingDown)
+      connectToLinksFlow();
+  },
     RECONNECT_DELAY_MS
   );
 }
@@ -1030,18 +1044,13 @@ async function updateLinks(linkIds) {
     };
   }
 
-  if (
-    !app ||
-    !app.documents ||
-    app.documents.length === 0
-  ) {
+  if (!app || !app.documents || app.documents.length === 0) {
     throw new Error(
       "No hay ningún documento abierto."
     );
   }
 
-  const document =
-    app.activeDocument;
+  const document = app.activeDocument;
 
   const details = [];
 
@@ -1075,7 +1084,6 @@ async function updateLinks(linkIds) {
       continue;
     }
 
-    //
     // --------------------------------------------------------
     // Esperar a que InDesign detecte que Photoshop
     // modificó el archivo.
@@ -1083,7 +1091,6 @@ async function updateLinks(linkIds) {
     // Normalmente ocurre muy rápido, pero no necesariamente
     // antes de recibir nuestro comando WebSocket.
     // --------------------------------------------------------
-    //
 
     let status = "";
 
@@ -1095,26 +1102,16 @@ async function updateLinks(linkIds) {
       attempt < maxAttempts;
       ++attempt
     ) {
-      status =
-        safeValue(
-          () => String(link.status),
-          ""
-        );
+      status = safeValue(() => String(link.status), "");
 
-      if (
-        status ===
-        "LINK_OUT_OF_DATE"
-      ) {
+      if (status === "LINK_OUT_OF_DATE") {
         break;
       }
 
       await delay(delayMs);
     }
 
-    //
-    // Leer nuevamente el estado justo antes
-    // de hacer update().
-    //
+    // Leer nuevamente el estado justo antes de hacer update().
 
     status =
       safeValue(
@@ -1122,93 +1119,70 @@ async function updateLinks(linkIds) {
         ""
       );
 
-    //
     // Si está desactualizado, actualizarlo.
-    //
 
-    if (
-      status ===
-      "LINK_OUT_OF_DATE"
-    ) {
+    if (status === "LINK_OUT_OF_DATE") {
       try {
         link.update();
 
         ++updated;
 
+        const effectiveResolution = effectiveResolutionForLink(link);
+
         details.push({
           linkId,
           success: true,
-          statusBefore:
-            status,
-          statusAfter:
-            safeValue(
-              () =>
-                String(link.status),
-              ""
-            )
+          statusBefore: status,
+          statusAfter: safeValue(() => String(link.status), ""),
+          effectiveResolution
         });
 
       } catch (error) {
         details.push({
           linkId,
           success: false,
-          statusBefore:
-            status,
-          error:
-            error &&
-              error.message
-              ? error.message
-              : String(error)
+          statusBefore: status,
+          error: error && error.message ? error.message : String(error)
         });
       }
 
       continue;
     }
 
-    //
-    // Si ya está NORMAL, InDesign pudo haber
-    // actualizado el vínculo automáticamente.
-    //
+    // Si ya está NORMAL, InDesign pudo haber actualizado el vínculo automáticamente.
 
     if (
       status === "NORMAL"
     ) {
       ++updated;
+      const effectiveResolution =
+        effectiveResolutionForLink(
+          link
+        );
 
       details.push({
         linkId,
         success: true,
-        statusBefore:
-          status,
-        statusAfter:
-          status,
-        reason:
-          "already-normal"
+        statusBefore: status,
+        statusAfter: status,
+        reason: "already-normal",
+        effectiveResolution
       });
 
       continue;
     }
 
-    //
     // Estado inesperado.
-    //
 
     details.push({
       linkId,
       success: false,
-      statusBefore:
-        status,
-      reason:
-        "unexpected-status"
+      statusBefore: status,
+      reason: "unexpected-status"
     });
   }
 
   return {
-    requested:
-      linkIds.length,
-
-    updated,
-
-    details
+    requested: linkIds.length, updated, details
   };
 }

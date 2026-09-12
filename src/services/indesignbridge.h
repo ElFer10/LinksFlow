@@ -6,6 +6,7 @@
 
 #include "../domain/indesigndocumentinfo.h"
 #include "../domain/linkinfo.h"
+#include "../domain/linkupdateresult.h"
 
 class InDesignBridge : public QObject
 {
@@ -27,6 +28,6 @@ class InDesignBridge : public QObject
     void analysisCompleted(const InDesignDocumentInfo &document);
 
     void analysisFailed(const QString &message);
-    void linksUpdated(int updatedCount);
+    void linksUpdated(const LinksUpdateResult &result);
     void linksUpdateFailed(const QString &message);
 };

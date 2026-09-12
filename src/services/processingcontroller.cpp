@@ -1,7 +1,10 @@
 #include "processingcontroller.h"
+#include "../domain/linkupdateresult.h"
 
 #include "adobephotoshopbridge.h"
 #include "indesignbridge.h"
+
+#include <QStringList>
 
 #include <QFileInfo>
 #include <QHash>
@@ -644,22 +647,77 @@ void ProcessingController::finishCurrentJob(ProcessingJobState state, const QStr
     QTimer::singleShot(0, this, &ProcessingController::processNextJob);
 }
 
-void ProcessingController::handleLinksUpdated(int updatedCount)
+void ProcessingController::handleLinksUpdated(const LinksUpdateResult &result)
 {
-    qDebug() << "ProcessingController recibió linksUpdated:" << updatedCount;
-
     if (!m_processing || m_currentJobIndex < 0 || m_currentJobIndex >= m_jobs.size())
         return;
 
     const ProcessingJob &job = m_jobs[m_currentJobIndex];
 
-    const int expectedCount = job.usages.size();
+    qDebug() << "Links actualizados:" << result.updated << "de" << result.requested;
 
-    qDebug() << "Links actualizados:" << updatedCount << "de" << expectedCount;
-
-    if (updatedCount <= 0)
+    if (result.updated <= 0 || result.links.isEmpty())
     {
         finishCurrentJob(ProcessingJobState::Failed, tr("InDesign no pudo actualizar ninguna colocación del archivo."));
+        return;
+    }
+
+    // ========================================================
+    // VALIDACIÓN POSTPROCESAMIENTO
+    // ========================================================
+
+    constexpr double tolerancePpi = 300;
+
+    bool validationOk = true;
+
+    QStringList validationErrors;
+
+    for (const UpdatedLinkInfo &link : result.links)
+    {
+        if (!link.success)
+        {
+            validationOk = false;
+
+            validationErrors.append(tr("Link %1 no pudo actualizarse.").arg(link.linkId));
+
+            continue;
+        }
+
+        if (link.statusAfter != QStringLiteral("NORMAL"))
+        {
+            validationOk = false;
+
+            validationErrors.append(tr("Link %1 quedó en estado %2.").arg(link.linkId).arg(link.statusAfter));
+
+            continue;
+        }
+
+        // Solo validamos contra target si este job realmente hizo resize.
+
+        if (job.resizeRequired)
+        {
+            const double minimumAccepted = job.targetResolution - tolerancePpi;
+
+            if (link.effectiveResolutionX < minimumAccepted || link.effectiveResolutionY < minimumAccepted)
+            {
+                validationOk = false;
+
+                validationErrors.append(tr("Link %1 quedó en "
+                                           "%2 × %3 ppi efectivos; "
+                                           "objetivo: %4 ppi.")
+                                            .arg(link.linkId)
+                                            .arg(link.effectiveResolutionX, 0, 'f', 1)
+                                            .arg(link.effectiveResolutionY, 0, 'f', 1)
+                                            .arg(job.targetResolution, 0, 'f', 1));
+            }
+        }
+    }
+
+    if (!validationOk)
+    {
+        finishCurrentJob(ProcessingJobState::Failed, tr("La validación posterior en "
+                                                        "InDesign falló:\n%1")
+                                                         .arg(validationErrors.join(QStringLiteral("\n"))));
 
         return;
     }

@@ -10,7 +10,9 @@
 
 class AdobePhotoshopBridge;
 class InDesignBridge;
+
 struct PhotoshopProcessResult;
+struct LinksUpdateResult;
 
 class ProcessingController : public QObject
 {
@@ -39,12 +41,12 @@ class ProcessingController : public QObject
     void handleResolutionProcessingFailed(const QString &message);
     void finishCurrentJob(ProcessingJobState state, const QString &message);
     double scaleFactorForJob(const ProcessingJob &job) const;
-    void handleLinksUpdated(int updatedCount);
+    void handleLinksUpdated(const LinksUpdateResult &result);
     void handleLinksUpdateFailed(const QString &message);
     void completeCurrentJob();
-    InDesignBridge *m_indesignBridge = nullptr;
 
   private:
+    InDesignBridge *m_indesignBridge = nullptr;
     AdobePhotoshopBridge *m_photoshopBridge = nullptr;
 
     QList<ProcessingJob> m_jobs;

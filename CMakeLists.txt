@@ -58,6 +58,7 @@ qt_add_executable(LinksFlow
     src/services/adobephotoshopbridge.h
     src/services/backupservice.cpp
     src/services/backupservice.h
+    src/domain/linkupdateresult.h
 )
 
 target_link_libraries(LinksFlow

@@ -1,6 +1,7 @@
 #include "adobeindesignbridge.h"
 
 #include "../domain/indesigndocumentinfo.h"
+#include "../domain/linkupdateresult.h"
 #include "adobebridgetransport.h"
 #include "indesignanalysisparser.h"
 
@@ -75,7 +76,12 @@ void AdobeInDesignBridge::updateLinks(const QList<qint64> &linkIds)
 
     if (linkIds.isEmpty())
     {
-        emit linksUpdated(0);
+        LinksUpdateResult result;
+
+        result.requested = 0;
+        result.updated = 0;
+
+        emit linksUpdated(result);
 
         return;
     }
@@ -199,29 +205,44 @@ void AdobeInDesignBridge::handleMessage(const QString &message)
 
         const QJsonObject result = object.value(QStringLiteral("result")).toObject();
 
-        const int updatedCount = result.value(QStringLiteral("updated")).toInt();
+        LinksUpdateResult updateResult;
 
-        qDebug() << "AdobeInDesignBridge linksUpdated:" << updatedCount;
-        emit linksUpdated(updatedCount);
+        updateResult.requested = result.value(QStringLiteral("requested")).toInt();
+        updateResult.updated = result.value(QStringLiteral("updated")).toInt();
+
+        const QJsonArray details = result.value(QStringLiteral("details")).toArray();
+
+        for (const QJsonValue &value : details)
+        {
+            if (!value.isObject())
+                continue;
+
+            const QJsonObject detail = value.toObject();
+
+            UpdatedLinkInfo info;
+
+            info.linkId = detail.value(QStringLiteral("linkId")).toInteger();
+            info.success = detail.value(QStringLiteral("success")).toBool(false);
+            info.statusBefore = detail.value(QStringLiteral("statusBefore")).toString();
+            info.statusAfter = detail.value(QStringLiteral("statusAfter")).toString();
+            info.message = detail.value(QStringLiteral("error")).toString();
+            const QJsonObject resolution = detail.value(QStringLiteral("effectiveResolution")).toObject();
+            info.effectiveResolutionX = resolution.value(QStringLiteral("x")).toDouble();
+            info.effectiveResolutionY = resolution.value(QStringLiteral("y")).toDouble();
+            updateResult.links.append(info);
+        }
+
+        emit linksUpdated(updateResult);
 
         return;
     }
 
-    //
     // ========================================================
     // RESPUESTA DEL ANÁLISIS
     // ========================================================
-    //
 
     if (m_pendingAnalysisId.isEmpty() || responseId != m_pendingAnalysisId)
-    {
-        //
-        // La respuesta no pertenece a ninguna
-        // petición que este bridge esté esperando.
-        //
-
         return;
-    }
 
     m_analysisTimeout.stop();
 

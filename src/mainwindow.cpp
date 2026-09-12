@@ -1,5 +1,7 @@
 #include "mainwindow.h"
 
+#include "domain/linkupdateresult.h"
+
 #include "services/adobebridgetransport.h"
 #include "services/adobeindesignbridge.h"
 #include "services/adobephotoshopbridge.h"
@@ -475,8 +477,10 @@ void MainWindow::createInterface()
 
         QMessageBox::critical(this, tr("Error de Photoshop"), message);
     });
-    connect(m_indesignBridge, &InDesignBridge::linksUpdated, this,
-            [](int count) { qDebug() << "Links actualizados en InDesign:" << count; });
+
+    connect(m_indesignBridge, &InDesignBridge::linksUpdated, this, [](const LinksUpdateResult &result) {
+        qDebug() << "Links actualizados en InDesign:" << result.updated << "de" << result.requested;
+    });
 
     connect(m_indesignBridge, &InDesignBridge::linksUpdateFailed, this,
             [](const QString &message) { qWarning() << "Error actualizando links:" << message; });
